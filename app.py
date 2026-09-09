@@ -875,7 +875,7 @@ with tab_predictor:
         """
         <div class="section-header">
             <h2>Live Predictive Delay Simulator</h2>
-            <p>Run real-time inference using trained Histogram Gradient Boosting models on the out-of-time test distribution.</p>
+            <p>Adjust any parameter below — results update instantly. Route baseline anchored to 469,968-flight historical data; carrier, hour, and day-of-week overlays applied on top.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -889,16 +889,24 @@ with tab_predictor:
             unsafe_allow_html=True,
         )
 
-        sim_carrier = st.selectbox(
+        carrier_labels = {
+            "AA": "AA — American", "DL": "DL — Delta", "UA": "UA — United",
+            "WN": "WN — Southwest", "B6": "B6 — JetBlue", "AS": "AS — Alaska",
+            "NK": "NK — Spirit", "F9": "F9 — Frontier", "HA": "HA — Hawaiian",
+            "OO": "OO — SkyWest", "EV": "EV — ExpressJet", "MQ": "MQ — Envoy",
+        }
+        carrier_codes = list(carrier_labels.keys())
+        sim_carrier_label = st.selectbox(
             "Airline Carrier",
-            options=["AA", "DL", "UA", "WN", "B6", "AS", "NK", "F9", "HA", "VX", "OO", "EV", "MQ", "US"],
+            options=list(carrier_labels.values()),
             index=0,
-            help="Operating air carrier (IATA code)",
+            help="Operating air carrier",
         )
+        sim_carrier = carrier_codes[list(carrier_labels.values()).index(sim_carrier_label)]
 
         top_hubs = ["ATL", "ORD", "DFW", "DEN", "LAX", "JFK", "SFO", "SEA", "LAS", "MCO", "EWR", "CLT", "PHX", "IAH", "BOS"]
         sim_origin = st.selectbox("Origin Airport", options=top_hubs, index=5)
-        sim_dest = st.selectbox("Destination Airport", options=top_hubs, index=4)
+        sim_dest   = st.selectbox("Destination Airport", options=top_hubs, index=4)
 
         sim_hour = st.slider("Scheduled Departure Hour", min_value=5, max_value=23, value=17, format="%02d:00")
         day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -906,9 +914,12 @@ with tab_predictor:
         sim_day_num = day_names.index(sim_day_str) + 1
         sim_is_weekend = sim_day_num in [6, 7]
 
-        sim_dist_group = st.slider("Distance Group (1=Short <250mi, 11=Transcontinental >2500mi)", 1, 11, 10)
+        sim_dist_group = st.slider("Distance Group  (1 = short <250 mi  |  11 = transcontinental)", 1, 11, 10)
 
-        run_pred_btn = st.button("Run Prediction", use_container_width=True, type="primary")
+        st.markdown(
+            '<p style="font-size:0.72rem; color:#606870; margin-top:8px;">Results auto-update on any change.</p>',
+            unsafe_allow_html=True,
+        )
 
     with pred_c2:
         pred_result = predictor.predict(
@@ -921,10 +932,14 @@ with tab_predictor:
             is_weekend=sim_is_weekend,
         )
 
-        risk = pred_result["risk_level"]
-        prob_pct = pred_result["delay_probability_pct"]
-        est_min = pred_result["estimated_delay_minutes"]
-        cost = pred_result["cost_impact_usd"]
+        risk      = pred_result["risk_level"]
+        prob_pct  = pred_result["delay_probability_pct"]
+        est_min   = pred_result["estimated_delay_minutes"]
+        cost      = pred_result["cost_impact_usd"]
+        route_base    = pred_result.get("route_baseline_delay_min", 0.0)
+        c_delta_pct   = pred_result.get("carrier_delta_pct", 0.0)
+        h_mult        = pred_result.get("hour_multiplier", 1.0)
+        dow_mult      = pred_result.get("dow_multiplier", 1.0)
 
         if risk == "low":
             risk_color = "#4CAF82"
@@ -936,31 +951,33 @@ with tab_predictor:
             risk_color = "#C0392B"
             risk_badge = "HIGH RISK"
 
+        # --- KPI Header Card -------------------------------------------------
         st.markdown(
             f"""
-            <div style="background: #242628; border: 1px solid #2C2F33; border-radius: 10px; padding: 22px; margin-bottom: 18px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-                    <div style="font-size: 1.05rem; font-weight: 700; color: #D4D8DC;">
-                        {sim_carrier} — {sim_origin} to {sim_dest}
+            <div style="background:#242628;border:1px solid #2C2F33;border-radius:10px;padding:22px;margin-bottom:18px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                    <div style="font-size:1.05rem;font-weight:700;color:#D4D8DC;">
+                        {sim_carrier} &mdash; {sim_origin} to {sim_dest}
                     </div>
-                    <div style="background: {risk_color}18; border: 1px solid {risk_color}55; color: {risk_color}; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 0.75rem;">
+                    <div style="background:{risk_color}18;border:1px solid {risk_color}55;color:{risk_color};
+                                padding:4px 12px;border-radius:20px;font-weight:700;font-size:0.75rem;">
                         {risk_badge}
                     </div>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px;">
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px;">
                     <div>
                         <div class="kpi-title">Delay Probability</div>
-                        <div style="font-size: 2.0rem; font-weight: 800; color: {risk_color};">{prob_pct:.1f}%</div>
-                        <div class="kpi-subtext">Arrival delay >= 15 min</div>
+                        <div style="font-size:2.0rem;font-weight:800;color:{risk_color};">{prob_pct:.1f}%</div>
+                        <div class="kpi-subtext">Arrival delay &ge; 15 min</div>
                     </div>
                     <div>
                         <div class="kpi-title">Estimated Delay</div>
-                        <div style="font-size: 2.0rem; font-weight: 800; color: #D4D8DC;">{est_min:.1f} <span style="font-size:0.95rem; color:#606870;">min</span></div>
-                        <div class="kpi-subtext">GBM Duration Regression</div>
+                        <div style="font-size:2.0rem;font-weight:800;color:#D4D8DC;">{est_min:.1f} <span style="font-size:0.95rem;color:#606870;">min</span></div>
+                        <div class="kpi-subtext">Blended route + operational model</div>
                     </div>
                     <div>
                         <div class="kpi-title">Direct Cost Exposure</div>
-                        <div style="font-size: 2.0rem; font-weight: 800; color: #D4D8DC;">${cost:,.0f}</div>
+                        <div style="font-size:2.0rem;font-weight:800;color:#D4D8DC;">${cost:,.0f}</div>
                         <div class="kpi-subtext">FAA $101.90 / min rate</div>
                     </div>
                 </div>
@@ -969,39 +986,95 @@ with tab_predictor:
             unsafe_allow_html=True,
         )
 
-        fig_gauge = go.Figure(
-            go.Indicator(
-                mode="gauge+number",
-                value=prob_pct,
-                domain={"x": [0, 1], "y": [0, 1]},
-                title={"text": "<b>Operational Delay Risk</b>", "font": {"size": 13, "color": "#9AA0A8"}},
-                number={"suffix": "%", "font": {"color": "#D4D8DC", "size": 30}},
-                gauge={
-                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#606870"},
-                    "bar": {"color": risk_color},
-                    "bgcolor": "rgba(255,255,255,0.03)",
-                    "borderwidth": 1,
-                    "bordercolor": "#2C2F33",
-                    "steps": [
-                        {"range": [0, 20], "color": "rgba(76,175,130,0.12)"},
-                        {"range": [20, 40], "color": "rgba(212,160,23,0.12)"},
-                        {"range": [40, 100], "color": "rgba(192,57,43,0.12)"},
-                    ],
-                    "threshold": {
-                        "line": {"color": "#C0392B", "width": 2.5},
-                        "thickness": 0.75,
-                        "value": 40,
+        gauge_col, factor_col = st.columns([1, 1])
+
+        with gauge_col:
+            fig_gauge = go.Figure(
+                go.Indicator(
+                    mode="gauge+number",
+                    value=prob_pct,
+                    domain={"x": [0, 1], "y": [0, 1]},
+                    title={"text": "<b>Operational Delay Risk</b>", "font": {"size": 13, "color": "#9AA0A8"}},
+                    number={"suffix": "%", "font": {"color": "#D4D8DC", "size": 30}},
+                    gauge={
+                        "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#606870"},
+                        "bar": {"color": risk_color},
+                        "bgcolor": "rgba(255,255,255,0.03)",
+                        "borderwidth": 1,
+                        "bordercolor": "#2C2F33",
+                        "steps": [
+                            {"range": [0, 20],  "color": "rgba(76,175,130,0.12)"},
+                            {"range": [20, 40], "color": "rgba(212,160,23,0.12)"},
+                            {"range": [40, 100],"color": "rgba(192,57,43,0.12)"},
+                        ],
+                        "threshold": {
+                            "line": {"color": "#C0392B", "width": 2.5},
+                            "thickness": 0.75,
+                            "value": 40,
+                        },
                     },
-                },
+                )
             )
-        )
-        fig_gauge.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            margin=dict(l=20, r=20, t=40, b=20),
-            height=220,
-        )
-        st.plotly_chart(fig_gauge, use_container_width=True)
+            fig_gauge.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                margin=dict(l=20, r=20, t=40, b=20),
+                height=220,
+            )
+            st.plotly_chart(fig_gauge, use_container_width=True)
+
+        with factor_col:
+            # ── Factor Breakdown Panel ───────────────────────────────────────
+            h_pct_change   = (h_mult   - 1.0) * 100
+            dow_pct_change = (dow_mult - 1.0) * 100
+
+            c_delta_color   = "#C0392B" if c_delta_pct   > 0 else "#4CAF82"
+            h_delta_color   = "#C0392B" if h_pct_change  > 0 else "#4CAF82"
+            dow_delta_color = "#C0392B" if dow_pct_change > 0 else "#4CAF82"
+
+            c_sign   = "+" if c_delta_pct   > 0 else ""
+            h_sign   = "+" if h_pct_change  > 0 else ""
+            dow_sign = "+" if dow_pct_change > 0 else ""
+            hour_label = f"{sim_hour:02d}:00"
+
+            st.markdown(
+                f"""
+                <div style="background:#242628;border:1px solid #2C2F33;border-radius:10px;padding:18px;height:220px;box-sizing:border-box;">
+                    <div style="font-size:0.75rem;font-weight:700;color:#858C94;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:14px;">
+                        Delay Factor Breakdown
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px;padding-bottom:11px;border-bottom:1px solid #2C2F33;">
+                        <div>
+                            <div style="font-size:0.78rem;font-weight:600;color:#9AA0A8;">Route Baseline ({sim_origin}-{sim_dest})</div>
+                            <div style="font-size:0.71rem;color:#606870;">Historical avg from 469,968 flights</div>
+                        </div>
+                        <div style="font-size:1.0rem;font-weight:700;color:#D4D8DC;">{route_base:.1f} min</div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <div>
+                            <div style="font-size:0.78rem;font-weight:600;color:#9AA0A8;">Carrier ({sim_carrier})</div>
+                            <div style="font-size:0.71rem;color:#606870;">Performance vs fleet average</div>
+                        </div>
+                        <div style="font-size:0.88rem;font-weight:700;color:{c_delta_color};">{c_sign}{c_delta_pct:.1f} pp</div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <div>
+                            <div style="font-size:0.78rem;font-weight:600;color:#9AA0A8;">Departure Hour ({hour_label})</div>
+                            <div style="font-size:0.71rem;color:#606870;">Cascade multiplier: {h_mult:.2f}x</div>
+                        </div>
+                        <div style="font-size:0.88rem;font-weight:700;color:{h_delta_color};">{h_sign}{h_pct_change:.0f}% cascade</div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div>
+                            <div style="font-size:0.78rem;font-weight:600;color:#9AA0A8;">Day of Week ({sim_day_str})</div>
+                            <div style="font-size:0.71rem;color:#606870;">Traffic pattern: {dow_mult:.2f}x</div>
+                        </div>
+                        <div style="font-size:0.88rem;font-weight:700;color:{dow_delta_color};">{dow_sign}{dow_pct_change:.0f}% demand</div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
         st.info(f"Operations Intelligence: {pred_result['interpretation']}")
 
