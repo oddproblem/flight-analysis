@@ -6,8 +6,9 @@ venv/
 __pycache__/
 *.py[cod]
 
-# Environment variables
+# Environment variables & secrets
 .env
+.streamlit/secrets.toml
 
 # Jupyter temporary files
 .ipynb_checkpoints/

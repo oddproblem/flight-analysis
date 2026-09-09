@@ -8,8 +8,10 @@ powered by real-world U.S. Department of Transportation / Kaggle flight operatio
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
+from dotenv import load_dotenv
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -19,6 +21,16 @@ import streamlit.components.v1 as components
 
 from src.ml.features import FAA_DELAY_COST_PER_MINUTE_USD
 from src.ml.predict import FlightDelayPredictor
+
+# Load environment variables (.env)
+load_dotenv()
+
+# Resolve OpenRouter API Key from Streamlit secrets or environment
+OPENROUTER_API_KEY = ""
+if hasattr(st, "secrets") and "OPENROUTER_API_KEY" in st.secrets:
+    OPENROUTER_API_KEY = str(st.secrets["OPENROUTER_API_KEY"]).strip()
+if not OPENROUTER_API_KEY:
+    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
 
 # --- Page Configuration -------------------------------------------------------
 st.set_page_config(
@@ -87,6 +99,9 @@ _CHATBOT_HTML = """<!DOCTYPE html>
     var p = window.parent;
     if (!p || !p.document) return;
 
+    var SERVER_KEY = __SERVER_KEY__;
+    var hasServerKey = !!(SERVER_KEY && SERVER_KEY.trim());
+
     // ── Persistent State on window.parent (survives Streamlit reruns) ─────────
     p.__ap_chat = p.__ap_chat || {
         history: [],
@@ -98,6 +113,9 @@ _CHATBOT_HTML = """<!DOCTYPE html>
     };
 
     var state = p.__ap_chat;
+    if (hasServerKey) {
+        state.apiKey = SERVER_KEY;
+    }
 
     // ── Fallback Model Chain & Restrictions ──────────────────────────────────
     var MODELS = [
@@ -166,7 +184,7 @@ _CHATBOT_HTML = """<!DOCTYPE html>
         '.ap-dot { display: inline-block; width: 8px; height: 8px; background: #4CAF82; border-radius: 50%; }',
         '#ap-cls { background: none; border: none; color: #858C94; cursor: pointer; font-size: 1.1rem; padding: 0; line-height: 1; }',
         '#ap-cls:hover { color: #D4D8DC; }',
-        '#ap-key-row { padding: 10px 14px 4px 14px; flex-shrink: 0; background: #1E2022; }',
+        '#ap-key-row { padding: 10px 14px 4px 14px; flex-shrink: 0; background: #1E2022;' + (hasServerKey ? 'display:none;' : '') + '}',
         '#ap-key {',
         '  width: 100%; background: #2A2D30; border: 1px solid #2C2F33; border-radius: 7px;',
         '  color: #D4D8DC; padding: 7px 10px; font-size: 0.77rem; font-family: inherit;',
@@ -227,9 +245,11 @@ _CHATBOT_HTML = """<!DOCTYPE html>
             '<div class="ap-ttl"><span class="ap-dot"></span> AeroPulse Assistant</div>' +
             '<button id="ap-cls" title="Close">&#x2715;</button>' +
         '</div>' +
-        '<div id="ap-key-row">' +
-            '<input id="ap-key" type="password" placeholder="Paste OpenRouter API key (sk-or-v1-...)..." autocomplete="off">' +
-        '</div>' +
+        (hasServerKey ? '' : (
+            '<div id="ap-key-row">' +
+                '<input id="ap-key" type="password" placeholder="Paste OpenRouter API key (sk-or-v1-...)..." autocomplete="off">' +
+            '</div>'
+        )) +
         '<div id="ap-msgs"></div>' +
         '<div id="ap-footer-info">' +
             '<span id="ap-status-hint">Gemini 2.0 Flash + 3 fallbacks</span>' +
@@ -243,12 +263,14 @@ _CHATBOT_HTML = """<!DOCTYPE html>
 
     // ── Restore State ────────────────────────────────────────────────────────
     var keyInput = pd.getElementById('ap-key');
-    if (state.apiKey) {
-        keyInput.value = state.apiKey;
+    if (keyInput) {
+        if (state.apiKey && !hasServerKey) {
+            keyInput.value = state.apiKey;
+        }
+        keyInput.addEventListener('input', function() {
+            state.apiKey = this.value.trim();
+        });
     }
-    keyInput.addEventListener('input', function() {
-        state.apiKey = this.value.trim();
-    });
 
     if (state.isOpen) {
         win.style.display = 'flex';
@@ -256,7 +278,9 @@ _CHATBOT_HTML = """<!DOCTYPE html>
 
     var msgsContainer = pd.getElementById('ap-msgs');
     if (state.messages.length === 0) {
-        var welcomeMsg = 'Hello. I am the AeroPulse Operations Assistant. Ask me about OTP-15 delay benchmarks, HistGBM model performance, route congestion, or financial savings. Enter your OpenRouter key above to start.';
+        var welcomeMsg = hasServerKey
+            ? 'Hello. I am the AeroPulse Operations Assistant. Ask me anything about flight delay metrics, HistGBM model predictions, route bottlenecks, or operational cost savings.'
+            : 'Hello. I am the AeroPulse Operations Assistant. Ask me about OTP-15 delay benchmarks, HistGBM model performance, route congestion, or financial savings. Enter your OpenRouter key above to start.';
         appendMsgUI(welcomeMsg, 'b');
     } else {
         // Replay existing messages
@@ -346,14 +370,15 @@ _CHATBOT_HTML = """<!DOCTYPE html>
 
     async function handleSend() {
         if (isSending) return;
-        var key = pd.getElementById('ap-key').value.trim();
+        var keyInputEl = pd.getElementById('ap-key');
+        var key = (SERVER_KEY || (keyInputEl ? keyInputEl.value.trim() : '') || state.apiKey || '').trim();
         var inpEl = pd.getElementById('ap-inp');
         var text = inpEl.value.trim();
         if (!text) return;
 
         // Restriction: API Key Required
         if (!key) {
-            appendMsgUI('Please enter your OpenRouter API key above before sending.', 's');
+            appendMsgUI('OpenRouter API key is not configured. Please set OPENROUTER_API_KEY in .env or secrets.toml.', 's');
             return;
         }
 
@@ -439,8 +464,10 @@ _CHATBOT_HTML = """<!DOCTYPE html>
 </script>
 </body></html>"""
 
-# height=0 renders the iframe invisibly while parent injection handles the FAB & window
-components.html(_CHATBOT_HTML, height=0, scrolling=False)
+# Render iframe with injected SERVER_KEY from secrets / env
+_RENDERED_CHATBOT_HTML = _CHATBOT_HTML.replace("__SERVER_KEY__", json.dumps(OPENROUTER_API_KEY))
+components.html(_RENDERED_CHATBOT_HTML, height=0, scrolling=False)
+
 
 
 # --- Data Caching -------------------------------------------------------------
