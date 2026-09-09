@@ -19,111 +19,467 @@ import streamlit as st
 from src.ml.features import FAA_DELAY_COST_PER_MINUTE_USD
 from src.ml.predict import FlightDelayPredictor
 
-# ─── Page Configuration ───────────────────────────────────────────────────────
+# --- Page Configuration -------------------------------------------------------
 st.set_page_config(
     page_title="AeroPulse | Flight Operations & Delay Intelligence",
-    page_icon="✈️",
+    page_icon="assets/favicon.ico" if Path("assets/favicon.ico").exists() else None,
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ─── Global Styling & Glassmorphism CSS ───────────────────────────────────────
-st.markdown(
-    """
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+# --- Global Styling -----------------------------------------------------------
+CHATBOT_CSS_JS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
 
-    html, body, [class*="css"] {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+html, body, [class*="css"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Override Streamlit default dark background with grey palette */
+.main {
+    background-color: #1A1C1E;
+}
+section[data-testid="stSidebar"] {
+    background-color: #1E2022;
+    border-right: 1px solid #2C2F33;
+}
+
+/* KPI Cards */
+.kpi-card {
+    background: #242628;
+    border: 1px solid #2C2F33;
+    border-radius: 10px;
+    padding: 20px;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+.kpi-card:hover {
+    border-color: #4CAF82;
+    background: #272A2C;
+}
+.kpi-title {
+    color: #858C94;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 6px;
+}
+.kpi-value {
+    color: #D4D8DC;
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+}
+.kpi-delta-good {
+    color: #4CAF82;
+    font-size: 0.80rem;
+    font-weight: 500;
+}
+.kpi-delta-bad {
+    color: #C0392B;
+    font-size: 0.80rem;
+    font-weight: 500;
+}
+.kpi-subtext {
+    color: #606870;
+    font-size: 0.74rem;
+    margin-top: 4px;
+}
+
+/* Recommendation cards */
+.rec-card {
+    background: #242628;
+    border-left: 3px solid #4CAF82;
+    border-radius: 0 8px 8px 0;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+}
+.rec-tag {
+    font-size: 0.70rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    color: #4CAF82;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+.rec-title {
+    font-size: 1.00rem;
+    font-weight: 600;
+    color: #D4D8DC;
+    margin: 4px 0 6px 0;
+}
+.rec-body {
+    font-size: 0.84rem;
+    color: #9AA0A8;
+    line-height: 1.5;
+}
+.rec-roi {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #4CAF82;
+    margin-top: 8px;
+}
+
+/* Section dividers */
+.section-header {
+    margin-bottom: 18px;
+}
+.section-header h2 {
+    margin: 0;
+    color: #D4D8DC;
+    font-weight: 700;
+    font-size: 1.35rem;
+}
+.section-header p {
+    color: #858C94;
+    margin: 4px 0 0 0;
+    font-size: 0.88rem;
+}
+
+/* ---- Chatbot Widget ---- */
+#chat-fab {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: #4CAF82;
+    color: #111;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 18px rgba(76,175,130,0.35);
+    z-index: 99999;
+    font-size: 1.3rem;
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+#chat-fab:hover {
+    background: #3d9e70;
+    box-shadow: 0 6px 24px rgba(76,175,130,0.5);
+}
+#chat-window {
+    position: fixed;
+    bottom: 92px;
+    right: 28px;
+    width: 360px;
+    height: 480px;
+    background: #1E2022;
+    border: 1px solid #2C2F33;
+    border-radius: 14px;
+    display: none;
+    flex-direction: column;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+    z-index: 99998;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+}
+#chat-header {
+    background: #242628;
+    border-bottom: 1px solid #2C2F33;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+#chat-header .chat-title {
+    color: #D4D8DC;
+    font-weight: 600;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+#chat-header .chat-status {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #4CAF82;
+    border-radius: 50%;
+}
+#chat-close {
+    background: none;
+    border: none;
+    color: #858C94;
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 0;
+}
+#chat-close:hover { color: #D4D8DC; }
+#chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: #2C2F33 transparent;
+}
+#chat-messages::-webkit-scrollbar { width: 4px; }
+#chat-messages::-webkit-scrollbar-thumb { background: #2C2F33; border-radius: 4px; }
+.chat-msg {
+    max-width: 86%;
+    padding: 10px 13px;
+    border-radius: 12px;
+    font-size: 0.84rem;
+    line-height: 1.5;
+    word-wrap: break-word;
+}
+.chat-msg.user {
+    background: #4CAF82;
+    color: #111;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+}
+.chat-msg.assistant {
+    background: #2A2D30;
+    color: #C8CDD3;
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+    border: 1px solid #2C2F33;
+}
+.chat-msg.typing {
+    background: #2A2D30;
+    color: #606870;
+    align-self: flex-start;
+    font-style: italic;
+    border: 1px solid #2C2F33;
+    border-bottom-left-radius: 4px;
+}
+#chat-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 12px 14px;
+    border-top: 1px solid #2C2F33;
+    flex-shrink: 0;
+    background: #1E2022;
+}
+#chat-input {
+    flex: 1;
+    background: #2A2D30;
+    border: 1px solid #2C2F33;
+    border-radius: 8px;
+    color: #D4D8DC;
+    padding: 9px 12px;
+    font-size: 0.84rem;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    resize: none;
+    min-height: 38px;
+    max-height: 90px;
+    line-height: 1.4;
+}
+#chat-input:focus { border-color: #4CAF82; }
+#chat-send {
+    background: #4CAF82;
+    color: #111;
+    border: none;
+    border-radius: 8px;
+    padding: 0 14px;
+    cursor: pointer;
+    font-size: 0.90rem;
+    font-weight: 600;
+    transition: background 0.15s ease;
+    flex-shrink: 0;
+}
+#chat-send:hover { background: #3d9e70; }
+#chat-send:disabled { background: #2C2F33; color: #606870; cursor: not-allowed; }
+#chat-api-row {
+    padding: 10px 14px 0 14px;
+    flex-shrink: 0;
+}
+#chat-api-key {
+    width: 100%;
+    background: #2A2D30;
+    border: 1px solid #2C2F33;
+    border-radius: 8px;
+    color: #858C94;
+    padding: 7px 10px;
+    font-size: 0.78rem;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    box-sizing: border-box;
+}
+#chat-api-key:focus { border-color: #4CAF82; color: #D4D8DC; }
+</style>
+
+<!-- Floating Action Button -->
+<button id="chat-fab" onclick="toggleChat()" title="Open AeroPulse Assistant">
+    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4.414a1 1 0 0 0-.707.293L.854 15.146A.5.5 0 0 1 0 14.793V2z"/>
+    </svg>
+</button>
+
+<!-- Chat Window -->
+<div id="chat-window">
+    <div id="chat-header">
+        <div class="chat-title">
+            <span class="chat-status"></span>
+            AeroPulse Assistant
+        </div>
+        <button id="chat-close" onclick="toggleChat()" title="Close">&#x2715;</button>
+    </div>
+    <div id="chat-api-row">
+        <input id="chat-api-key" type="password" placeholder="Paste your OpenRouter API key to start..." autocomplete="off" />
+    </div>
+    <div id="chat-messages">
+        <div class="chat-msg assistant">
+            Hello. I am the AeroPulse Operations Assistant. I can answer questions about flight delay analytics, model methodology, business recommendations, and the data pipeline. Paste your API key above to begin.
+        </div>
+    </div>
+    <div id="chat-input-row">
+        <textarea id="chat-input" placeholder="Ask about delays, routes, ML models..." rows="1" onkeydown="handleKey(event)"></textarea>
+        <button id="chat-send" onclick="sendMessage()">Send</button>
+    </div>
+</div>
+
+<script>
+(function() {
+    var SYSTEM_PROMPT = `You are the AeroPulse Operations Assistant, an expert in aviation delay analytics and the AeroPulse Intelligence platform.
+
+Key facts about the AeroPulse project:
+- Analyzes 469,968 real-world U.S. DOT On-Time Performance flight records from January 2024
+- Uses Histogram Gradient Boosting (HistGBM) for delay forecasting and risk classification
+- Training split: Days 1-23 (345,440 flights) | Test split: Days 24-31 (111,573 flights) - strict chronological out-of-time split
+- Delay classification threshold: 15 minutes (FAA OTP-15 standard)
+- Financial benchmark: FAA $101.90 per minute of delay
+- Classifier ROC-AUC: 0.6096 | Continuous MAE: 16.56 min | Median AE: 11.75 min
+- Top predictor: route_avg_delay_minutes (68.6% permutation importance)
+- Key insight: 78%+ of flights arrive on time, but severe right-skewness drives high RMSE from outlier events
+- Business recommendations: Dynamic hub buffering ($1.8M/month savings), corridor padding (+4.2% OTP), crew reserve staging ($3.4M/quarter)
+- Star schema warehouse: fact_flight, dim_airline, dim_airport, dim_date
+- Built with Python, Pandas, Scikit-Learn, Streamlit, Plotly, PyArrow
+
+Answer concisely and accurately. If asked about something outside aviation/data analytics, politely redirect.`;
+
+    var conversationHistory = [{ role: "system", content: SYSTEM_PROMPT }];
+    var isOpen = false;
+    var isLoading = false;
+
+    window.toggleChat = function() {
+        isOpen = !isOpen;
+        var win = document.getElementById("chat-window");
+        win.style.display = isOpen ? "flex" : "none";
+        if (isOpen) {
+            document.getElementById("chat-input").focus();
+        }
+    };
+
+    window.handleKey = function(e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    };
+
+    window.sendMessage = async function() {
+        if (isLoading) return;
+        var input = document.getElementById("chat-input");
+        var apiKeyInput = document.getElementById("chat-api-key");
+        var userText = input.value.trim();
+        var apiKey = apiKeyInput.value.trim();
+
+        if (!userText) return;
+        if (!apiKey) {
+            appendMsg("Please paste your OpenRouter API key in the field above.", "assistant");
+            return;
+        }
+
+        appendMsg(userText, "user");
+        input.value = "";
+        input.style.height = "auto";
+
+        conversationHistory.push({ role: "user", content: userText });
+
+        isLoading = true;
+        var sendBtn = document.getElementById("chat-send");
+        sendBtn.disabled = true;
+
+        var typingId = "typing-" + Date.now();
+        var typingDiv = document.createElement("div");
+        typingDiv.className = "chat-msg typing";
+        typingDiv.id = typingId;
+        typingDiv.textContent = "Thinking...";
+        document.getElementById("chat-messages").appendChild(typingDiv);
+        scrollToBottom();
+
+        try {
+            var response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": "Bearer " + apiKey,
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": window.location.href,
+                    "X-Title": "AeroPulse Intelligence"
+                },
+                body: JSON.stringify({
+                    model: "google/gemini-2.0-flash-001",
+                    messages: conversationHistory,
+                    max_tokens: 600,
+                    temperature: 0.4
+                })
+            });
+
+            var data = await response.json();
+
+            var typingEl = document.getElementById(typingId);
+            if (typingEl) typingEl.remove();
+
+            if (data.error) {
+                appendMsg("API Error: " + (data.error.message || "Unknown error"), "assistant");
+            } else {
+                var reply = data.choices[0].message.content;
+                conversationHistory.push({ role: "assistant", content: reply });
+                appendMsg(reply, "assistant");
+            }
+        } catch (err) {
+            var typingEl2 = document.getElementById(typingId);
+            if (typingEl2) typingEl2.remove();
+            appendMsg("Network error. Please check your API key and internet connection.", "assistant");
+        }
+
+        isLoading = false;
+        sendBtn.disabled = false;
+        input.focus();
+    };
+
+    function appendMsg(text, role) {
+        var div = document.createElement("div");
+        div.className = "chat-msg " + role;
+        div.textContent = text;
+        document.getElementById("chat-messages").appendChild(div);
+        scrollToBottom();
     }
 
-    .main {
-        background: #0B0E14;
+    function scrollToBottom() {
+        var msgs = document.getElementById("chat-messages");
+        msgs.scrollTop = msgs.scrollHeight;
     }
 
-    /* Glassmorphism KPI cards */
-    .kpi-card {
-        background: linear-gradient(135deg, rgba(22, 27, 34, 0.85) 0%, rgba(13, 17, 23, 0.95) 100%);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-        backdrop-filter: blur(10px);
-        transition: transform 0.2s ease, border-color 0.2s ease;
-    }
-    .kpi-card:hover {
-        border-color: rgba(79, 142, 247, 0.4);
-        transform: translateY(-2px);
-    }
-    .kpi-title {
-        color: #8B949E;
-        font-size: 0.80rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        margin-bottom: 6px;
-    }
-    .kpi-value {
-        color: #FFFFFF;
-        font-size: 1.85rem;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-        margin-bottom: 4px;
-    }
-    .kpi-delta-good {
-        color: #3FB950;
-        font-size: 0.82rem;
-        font-weight: 500;
-    }
-    .kpi-delta-bad {
-        color: #F85149;
-        font-size: 0.82rem;
-        font-weight: 500;
-    }
-    .kpi-subtext {
-        color: #6E7681;
-        font-size: 0.75rem;
-        margin-top: 4px;
-    }
+    // Auto-resize textarea
+    document.addEventListener("DOMContentLoaded", function() {
+        var ta = document.getElementById("chat-input");
+        if (ta) {
+            ta.addEventListener("input", function() {
+                this.style.height = "auto";
+                this.style.height = Math.min(this.scrollHeight, 90) + "px";
+            });
+        }
+    });
+})();
+</script>
+"""
 
-    /* Recommendation card */
-    .rec-card {
-        background: rgba(22, 27, 34, 0.7);
-        border-left: 4px solid #4F8EF7;
-        border-radius: 0 10px 10px 0;
-        padding: 16px 20px;
-        margin-bottom: 16px;
-    }
-    .rec-tag {
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        color: #58A6FF;
-        text-transform: uppercase;
-    }
-    .rec-title {
-        font-size: 1.05rem;
-        font-weight: 600;
-        color: #F0F6FC;
-        margin: 4px 0 6px 0;
-    }
-    .rec-body {
-        font-size: 0.86rem;
-        color: #C9D1D9;
-        line-height: 1.5;
-    }
-    .rec-roi {
-        font-size: 0.82rem;
-        font-weight: 600;
-        color: #3FB950;
-        margin-top: 6px;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+st.markdown(CHATBOT_CSS_JS, unsafe_allow_html=True)
 
-# ─── Data Caching ─────────────────────────────────────────────────────────────
+# --- Data Caching -------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_PATH = PROJECT_ROOT / "data" / "processed" / "flights_clean.parquet"
 COMPAT_DATA_PATH = PROJECT_ROOT / "data" / "processed" / "flights_2024_01_clean.parquet"
@@ -193,24 +549,29 @@ df_full = load_dataset()
 predictor = get_predictor()
 metadata = load_model_metadata()
 
-# ─── Sidebar Controls ─────────────────────────────────────────────────────────
+# --- Sidebar ------------------------------------------------------------------
 with st.sidebar:
     st.markdown(
         """
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
-            <div style="background: #1F6FEB; border-radius: 8px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
-                ✈️
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #2C2F33;">
+            <div style="background: #4CAF82; border-radius: 8px; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#111" viewBox="0 0 16 16">
+                    <path d="M6.428 1.151C6.708.591 7.213 0 8 0s1.292.592 1.572 1.151C9.861 1.73 10 2.431 10 3v3.691l5.17 2.585a1.5 1.5 0 0 1 .83 1.342V12a.5.5 0 0 1-.582.493l-5.507-.918-.375 2.253 1.318 1.318A.5.5 0 0 1 10.5 16h-5a.5.5 0 0 1-.354-.854l1.319-1.318-.376-2.253-5.507.918A.5.5 0 0 1 0 12v-1.382a1.5 1.5 0 0 1 .83-1.342L6 6.691V3c0-.568.14-1.271.428-1.849z"/>
+                </svg>
             </div>
             <div>
-                <div style="font-weight: 800; font-size: 1.15rem; color: #FFFFFF; letter-spacing: -0.02em;">AEROPULSE</div>
-                <div style="font-size: 0.70rem; color: #8B949E; text-transform: uppercase; letter-spacing: 0.08em;">Operations Intelligence</div>
+                <div style="font-weight: 700; font-size: 1.05rem; color: #D4D8DC; letter-spacing: -0.01em;">AEROPULSE</div>
+                <div style="font-size: 0.68rem; color: #606870; text-transform: uppercase; letter-spacing: 0.09em;">Operations Intelligence</div>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    st.markdown("### 🎛️ Data Filters")
+    st.markdown(
+        '<p style="font-size:0.78rem; font-weight:600; text-transform:uppercase; letter-spacing:0.07em; color:#606870; margin-bottom:8px;">Data Filters</p>',
+        unsafe_allow_html=True,
+    )
 
     # Airline filter
     available_airlines = sorted(df_full["reporting_airline_code"].dropna().unique())
@@ -242,14 +603,14 @@ with st.sidebar:
         max_value=max_date,
     )
 
-    st.markdown("---")
+    st.markdown("<hr style='border-color:#2C2F33; margin:16px 0;'>", unsafe_allow_html=True)
     st.markdown(
         """
-        <div style="font-size: 0.75rem; color: #8B949E; line-height: 1.4;">
-            <b style="color: #C9D1D9;">Dataset:</b> U.S. DOT On-Time Performance<br>
-            <b style="color: #C9D1D9;">Source:</b> Kaggle / BTS Verified Extract<br>
-            <b style="color: #C9D1D9;">Volume:</b> 469,968 Flight Records<br>
-            <b style="color: #C9D1D9;">Cost Basis:</b> FAA $101.90 / min
+        <div style="font-size: 0.74rem; color: #606870; line-height: 1.6;">
+            <span style="color: #858C94; font-weight:600;">Dataset:</span> U.S. DOT On-Time Performance<br>
+            <span style="color: #858C94; font-weight:600;">Source:</span> Kaggle / BTS Verified Extract<br>
+            <span style="color: #858C94; font-weight:600;">Volume:</span> 469,968 Flight Records<br>
+            <span style="color: #858C94; font-weight:600;">Cost Basis:</span> FAA $101.90 / min
         </div>
         """,
         unsafe_allow_html=True,
@@ -268,28 +629,36 @@ if isinstance(date_range, (list, tuple)) and len(date_range) == 2:
         & (filtered_df["flight_date"].dt.date <= end_d)
     ]
 
-# ─── Navigation Tabs ──────────────────────────────────────────────────────────
+# Common Plotly layout defaults for grey theme
+_PLOT_LAYOUT = dict(
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="#242628",
+    font=dict(color="#9AA0A8", size=12),
+    margin=dict(l=40, r=40, t=55, b=40),
+    xaxis=dict(gridcolor="#2C2F33", linecolor="#2C2F33"),
+    yaxis=dict(gridcolor="#2C2F33", linecolor="#2C2F33"),
+)
+
+# --- Navigation Tabs ----------------------------------------------------------
 tab_kpi, tab_predictor, tab_benchmark, tab_diagnostics, tab_sql = st.tabs(
     [
-        "📊 Executive KPI Command Center",
-        "🎯 ML Delay Predictor",
-        "🏆 Carrier & Airport Benchmarks",
-        "🔬 Diagnostics & Business Recommendations",
-        "💾 SQL & Star Schema Intelligence",
+        "Executive Overview",
+        "ML Delay Simulator",
+        "Carrier & Airport Benchmarks",
+        "Diagnostics & Business Recommendations",
+        "SQL & Star Schema",
     ]
 )
 
-# ─────────────────────────────────────────────────────────────────────────────
+# =============================================================================
 # TAB 1: EXECUTIVE KPI COMMAND CENTER
-# ─────────────────────────────────────────────────────────────────────────────
+# =============================================================================
 with tab_kpi:
     st.markdown(
         """
-        <div style="margin-bottom: 20px;">
-            <h2 style="margin: 0; color: #FFFFFF; font-weight: 700;">Executive Aviation Reliability Command Center</h2>
-            <p style="color: #8B949E; margin: 4px 0 0 0; font-size: 0.90rem;">
-                Macro-level on-time performance (OTP-15), delay driver decomposition, and financial impact across U.S. airspace.
-            </p>
+        <div class="section-header">
+            <h2>Executive Aviation Reliability Overview</h2>
+            <p>Macro-level on-time performance (OTP-15), delay driver decomposition, and financial impact across U.S. airspace.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -314,7 +683,7 @@ with tab_kpi:
 
     cancellation_rate = (cancelled_count / total_flights * 100) if total_flights else 0.0
 
-    # Top KPI Ribbon
+    # KPI Ribbon
     c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
         st.markdown(
@@ -344,7 +713,7 @@ with tab_kpi:
             f"""
             <div class="kpi-card">
                 <div class="kpi-title">Avg Arrival Delay</div>
-                <div class="kpi-value">{avg_arr_delay:.1f} <span style="font-size:1rem;color:#8B949E;">min</span></div>
+                <div class="kpi-value">{avg_arr_delay:.1f} <span style="font-size:0.95rem;color:#606870;">min</span></div>
                 <div class="kpi-subtext">Avg Departure: {avg_dep_delay:.1f} min</div>
             </div>
             """,
@@ -374,13 +743,12 @@ with tab_kpi:
             unsafe_allow_html=True,
         )
 
-    st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:18px;'></div>", unsafe_allow_html=True)
 
-    # ── Charts Row 1: Temporal Cascade & Cause Decomposition ─────────────────
+    # Charts Row 1
     ch_col1, ch_col2 = st.columns([3, 2])
 
     with ch_col1:
-        # Hourly Delay Cascade: Delay accumulates as day progresses
         hourly = (
             completed_df.groupby("scheduled_departure_hour")
             .agg(
@@ -398,7 +766,7 @@ with tab_kpi:
                 x=hourly["scheduled_departure_hour"],
                 y=hourly["flight_volume"],
                 name="Flight Volume",
-                marker_color="rgba(79, 142, 247, 0.25)",
+                marker_color="rgba(76,175,130,0.20)",
                 yaxis="y2",
             )
         )
@@ -407,35 +775,32 @@ with tab_kpi:
                 x=hourly["scheduled_departure_hour"],
                 y=hourly["avg_delay"],
                 name="Avg Arrival Delay (min)",
-                line=dict(color="#F85149", width=3),
+                line=dict(color="#C0392B", width=2.5),
                 mode="lines+markers",
+                marker=dict(size=5),
             )
         )
         fig_cascade.add_trace(
             go.Scatter(
                 x=hourly["scheduled_departure_hour"],
                 y=hourly["delay_rate"],
-                name="Delayed Flight Rate (% ≥15m)",
-                line=dict(color="#D29922", width=2, dash="dot"),
+                name="Delayed Flight Rate (% >=15m)",
+                line=dict(color="#D4A017", width=2, dash="dot"),
                 mode="lines",
             )
         )
-
         fig_cascade.update_layout(
-            title=dict(text="<b>Time-of-Day Delay Cascade Effect</b> (Morning Punctuality → Evening Compounding)", font=dict(size=14, color="#F0F6FC")),
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(22, 27, 34, 0.4)",
-            xaxis=dict(title="Scheduled Departure Hour (24h)", gridcolor="rgba(255,255,255,0.06)", tickmode="linear", dtick=1),
-            yaxis=dict(title="Delay Duration (Minutes) / Rate (%)", gridcolor="rgba(255,255,255,0.06)"),
-            yaxis2=dict(title="Flight Volume", overlaying="y", side="right", showgrid=False),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            margin=dict(l=40, r=40, t=60, b=40),
+            **_PLOT_LAYOUT,
+            title=dict(text="<b>Time-of-Day Delay Cascade Effect</b>", font=dict(size=13, color="#C8CDD3")),
+            xaxis=dict(title="Scheduled Departure Hour (24h)", gridcolor="#2C2F33", tickmode="linear", dtick=1),
+            yaxis=dict(title="Delay (min) / Rate (%)", gridcolor="#2C2F33"),
+            yaxis2=dict(title="Flight Volume", overlaying="y", side="right", showgrid=False, color="#606870"),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, bgcolor="rgba(0,0,0,0)"),
             height=380,
         )
         st.plotly_chart(fig_cascade, use_container_width=True)
 
     with ch_col2:
-        # Delay Cause Breakdown
         delay_causes = {
             "Late Aircraft Cascade": completed_df["late_aircraft_delay_minutes"].sum(),
             "Air Carrier Control": completed_df["carrier_delay_minutes"].sum(),
@@ -458,21 +823,19 @@ with tab_kpi:
             orientation="h",
             text=cause_df["Percentage"].apply(lambda p: f"{p:.1f}%"),
             color="Percentage",
-            color_continuous_scale=["#1F6FEB", "#F85149"],
+            color_continuous_scale=["#4CAF82", "#C0392B"],
             title="<b>Root-Cause Delay Breakdown</b>",
         )
         fig_cause.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(22, 27, 34, 0.4)",
+            **_PLOT_LAYOUT,
             coloraxis_showscale=False,
-            xaxis=dict(title="Total Delay Minutes", gridcolor="rgba(255,255,255,0.06)"),
+            xaxis=dict(title="Total Delay Minutes", gridcolor="#2C2F33"),
             yaxis=dict(title=""),
-            margin=dict(l=40, r=40, t=60, b=40),
             height=380,
         )
         st.plotly_chart(fig_cause, use_container_width=True)
 
-    # ── Daily Volume & OTP Trend ──────────────────────────────────────────────
+    # Daily OTP Trend
     daily = (
         completed_df.groupby(completed_df["flight_date"].dt.date)
         .agg(
@@ -489,7 +852,7 @@ with tab_kpi:
             x=daily["flight_date"],
             y=daily["total_flights"],
             name="Daily Completed Flights",
-            marker_color="rgba(56, 139, 253, 0.35)",
+            marker_color="rgba(76,175,130,0.22)",
             yaxis="y2",
         )
     )
@@ -498,35 +861,32 @@ with tab_kpi:
             x=daily["flight_date"],
             y=daily["otp"],
             name="On-Time Performance (%)",
-            line=dict(color="#3FB950", width=3),
+            line=dict(color="#4CAF82", width=2.5),
             mode="lines+markers",
+            marker=dict(size=5),
         )
     )
     fig_daily.update_layout(
-        title=dict(text="<b>Daily Flight Volume & On-Time Performance Trend</b>", font=dict(size=14, color="#F0F6FC")),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(22, 27, 34, 0.4)",
-        xaxis=dict(title="Date", gridcolor="rgba(255,255,255,0.06)"),
-        yaxis=dict(title="OTP-15 (%)", range=[50, 100], gridcolor="rgba(255,255,255,0.06)"),
-        yaxis2=dict(title="Total Flights", overlaying="y", side="right", showgrid=False),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        margin=dict(l=40, r=40, t=60, b=40),
+        **_PLOT_LAYOUT,
+        title=dict(text="<b>Daily Flight Volume & On-Time Performance Trend</b>", font=dict(size=13, color="#C8CDD3")),
+        xaxis=dict(title="Date", gridcolor="#2C2F33"),
+        yaxis=dict(title="OTP-15 (%)", range=[50, 100], gridcolor="#2C2F33"),
+        yaxis2=dict(title="Total Flights", overlaying="y", side="right", showgrid=False, color="#606870"),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, bgcolor="rgba(0,0,0,0)"),
         height=320,
     )
     st.plotly_chart(fig_daily, use_container_width=True)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# =============================================================================
 # TAB 2: INTERACTIVE ML DELAY PREDICTOR
-# ─────────────────────────────────────────────────────────────────────────────
+# =============================================================================
 with tab_predictor:
     st.markdown(
         """
-        <div style="margin-bottom: 20px;">
-            <h2 style="margin: 0; color: #FFFFFF; font-weight: 700;">Live Predictive Delay Simulator</h2>
-            <p style="color: #8B949E; margin: 4px 0 0 0; font-size: 0.90rem;">
-                Run real-time inference using trained Histogram Gradient Boosting models (GBM) on the out-of-time test distribution.
-            </p>
+        <div class="section-header">
+            <h2>Live Predictive Delay Simulator</h2>
+            <p>Run real-time inference using trained Histogram Gradient Boosting models on the out-of-time test distribution.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -535,7 +895,10 @@ with tab_predictor:
     pred_c1, pred_c2 = st.columns([1, 2])
 
     with pred_c1:
-        st.markdown("#### Flight Parameters")
+        st.markdown(
+            '<p style="font-weight:600; color:#9AA0A8; margin-bottom:12px; font-size:0.88rem;">Flight Parameters</p>',
+            unsafe_allow_html=True,
+        )
 
         sim_carrier = st.selectbox(
             "Airline Carrier",
@@ -545,22 +908,20 @@ with tab_predictor:
         )
 
         top_hubs = ["ATL", "ORD", "DFW", "DEN", "LAX", "JFK", "SFO", "SEA", "LAS", "MCO", "EWR", "CLT", "PHX", "IAH", "BOS"]
-        sim_origin = st.selectbox("Origin Airport", options=top_hubs, index=5)  # JFK
-        sim_dest = st.selectbox("Destination Airport", options=top_hubs, index=4)  # LAX
+        sim_origin = st.selectbox("Origin Airport", options=top_hubs, index=5)
+        sim_dest = st.selectbox("Destination Airport", options=top_hubs, index=4)
 
         sim_hour = st.slider("Scheduled Departure Hour", min_value=5, max_value=23, value=17, format="%02d:00")
         day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-        sim_day_str = st.selectbox("Day of Week", options=day_names, index=4)  # Friday
+        sim_day_str = st.selectbox("Day of Week", options=day_names, index=4)
         sim_day_num = day_names.index(sim_day_str) + 1
         sim_is_weekend = sim_day_num in [6, 7]
 
-        # Calculate approximate distance group
-        sim_dist_group = st.slider("Distance Group (1=Short Haul <250mi, 11=Transcontinental >2500mi)", 1, 11, 10)
+        sim_dist_group = st.slider("Distance Group (1=Short <250mi, 11=Transcontinental >2500mi)", 1, 11, 10)
 
-        run_pred_btn = st.button("🚀 Run Real-Time Prediction", use_container_width=True, type="primary")
+        run_pred_btn = st.button("Run Prediction", use_container_width=True, type="primary")
 
     with pred_c2:
-        # Execute prediction
         pred_result = predictor.predict(
             carrier=sim_carrier,
             origin=sim_origin,
@@ -576,42 +937,41 @@ with tab_predictor:
         est_min = pred_result["estimated_delay_minutes"]
         cost = pred_result["cost_impact_usd"]
 
-        # Color based on risk
         if risk == "low":
-            risk_color = "#3FB950"
+            risk_color = "#4CAF82"
             risk_badge = "LOW RISK"
         elif risk == "moderate":
-            risk_color = "#D29922"
+            risk_color = "#D4A017"
             risk_badge = "MODERATE RISK"
         else:
-            risk_color = "#F85149"
+            risk_color = "#C0392B"
             risk_badge = "HIGH RISK"
 
         st.markdown(
             f"""
-            <div style="background: rgba(22, 27, 34, 0.9); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 24px; margin-bottom: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <div style="font-size: 1.1rem; font-weight: 700; color: #FFFFFF;">
-                        {sim_carrier} Flight: {sim_origin} → {sim_dest}
+            <div style="background: #242628; border: 1px solid #2C2F33; border-radius: 10px; padding: 22px; margin-bottom: 18px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                    <div style="font-size: 1.05rem; font-weight: 700; color: #D4D8DC;">
+                        {sim_carrier} — {sim_origin} to {sim_dest}
                     </div>
-                    <div style="background: {risk_color}22; border: 1px solid {risk_color}; color: {risk_color}; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 0.80rem;">
+                    <div style="background: {risk_color}18; border: 1px solid {risk_color}55; color: {risk_color}; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 0.75rem;">
                         {risk_badge}
                     </div>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 16px;">
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px;">
                     <div>
                         <div class="kpi-title">Delay Probability</div>
-                        <div style="font-size: 2.2rem; font-weight: 800; color: {risk_color};">{prob_pct:.1f}%</div>
-                        <div class="kpi-subtext">Arrival delay ≥ 15 min</div>
+                        <div style="font-size: 2.0rem; font-weight: 800; color: {risk_color};">{prob_pct:.1f}%</div>
+                        <div class="kpi-subtext">Arrival delay >= 15 min</div>
                     </div>
                     <div>
                         <div class="kpi-title">Estimated Delay</div>
-                        <div style="font-size: 2.2rem; font-weight: 800; color: #FFFFFF;">{est_min:.1f} <span style="font-size:1.1rem; color:#8B949E;">min</span></div>
+                        <div style="font-size: 2.0rem; font-weight: 800; color: #D4D8DC;">{est_min:.1f} <span style="font-size:0.95rem; color:#606870;">min</span></div>
                         <div class="kpi-subtext">GBM Duration Regression</div>
                     </div>
                     <div>
                         <div class="kpi-title">Direct Cost Exposure</div>
-                        <div style="font-size: 2.2rem; font-weight: 800; color: #FFFFFF;">${cost:,.0f}</div>
+                        <div style="font-size: 2.0rem; font-weight: 800; color: #D4D8DC;">${cost:,.0f}</div>
                         <div class="kpi-subtext">FAA $101.90 / min rate</div>
                     </div>
                 </div>
@@ -620,27 +980,26 @@ with tab_predictor:
             unsafe_allow_html=True,
         )
 
-        # Visual Gauge Chart for Delay Probability
         fig_gauge = go.Figure(
             go.Indicator(
                 mode="gauge+number",
                 value=prob_pct,
                 domain={"x": [0, 1], "y": [0, 1]},
-                title={"text": "<b>Operational Delay Risk Gauge</b>", "font": {"size": 14, "color": "#F0F6FC"}},
-                number={"suffix": "%", "font": {"color": "#FFFFFF", "size": 32}},
+                title={"text": "<b>Operational Delay Risk</b>", "font": {"size": 13, "color": "#9AA0A8"}},
+                number={"suffix": "%", "font": {"color": "#D4D8DC", "size": 30}},
                 gauge={
-                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#8B949E"},
+                    "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#606870"},
                     "bar": {"color": risk_color},
-                    "bgcolor": "rgba(255,255,255,0.05)",
+                    "bgcolor": "rgba(255,255,255,0.03)",
                     "borderwidth": 1,
-                    "bordercolor": "rgba(255,255,255,0.1)",
+                    "bordercolor": "#2C2F33",
                     "steps": [
-                        {"range": [0, 20], "color": "rgba(63, 185, 80, 0.15)"},
-                        {"range": [20, 40], "color": "rgba(210, 153, 34, 0.15)"},
-                        {"range": [40, 100], "color": "rgba(248, 81, 73, 0.15)"},
+                        {"range": [0, 20], "color": "rgba(76,175,130,0.12)"},
+                        {"range": [20, 40], "color": "rgba(212,160,23,0.12)"},
+                        {"range": [40, 100], "color": "rgba(192,57,43,0.12)"},
                     ],
                     "threshold": {
-                        "line": {"color": "#F85149", "width": 3},
+                        "line": {"color": "#C0392B", "width": 2.5},
                         "thickness": 0.75,
                         "value": 40,
                     },
@@ -655,21 +1014,18 @@ with tab_predictor:
         )
         st.plotly_chart(fig_gauge, use_container_width=True)
 
-        # Operational Advice
-        st.info(f"💡 **Operations Intelligence:** {pred_result['interpretation']}")
+        st.info(f"Operations Intelligence: {pred_result['interpretation']}")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# =============================================================================
 # TAB 3: CARRIER & AIRPORT BENCHMARKS
-# ─────────────────────────────────────────────────────────────────────────────
+# =============================================================================
 with tab_benchmark:
     st.markdown(
         """
-        <div style="margin-bottom: 20px;">
-            <h2 style="margin: 0; color: #FFFFFF; font-weight: 700;">Carrier & Airport Reliability Benchmarks</h2>
-            <p style="color: #8B949E; margin: 4px 0 0 0; font-size: 0.90rem;">
-                Head-to-head performance rankings, airport hub congestion bottlenecks, and route vulnerability.
-            </p>
+        <div class="section-header">
+            <h2>Carrier & Airport Reliability Benchmarks</h2>
+            <p>Head-to-head performance rankings, airport hub congestion bottlenecks, and route vulnerability analysis.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -678,7 +1034,6 @@ with tab_benchmark:
     bench_c1, bench_c2 = st.columns(2)
 
     with bench_c1:
-        # Carrier Performance Ranking
         carrier_perf = (
             completed_df.groupby("reporting_airline_code")
             .agg(
@@ -697,22 +1052,19 @@ with tab_benchmark:
             orientation="h",
             text=carrier_perf["otp"].apply(lambda x: f"{x:.1f}%"),
             color="otp",
-            color_continuous_scale=["#F85149", "#D29922", "#3FB950"],
+            color_continuous_scale=["#C0392B", "#D4A017", "#4CAF82"],
             title="<b>Airline On-Time Performance (OTP-15) Ranking</b>",
         )
         fig_carrier.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(22, 27, 34, 0.4)",
-            xaxis=dict(title="On-Time Arrival Rate (%)", range=[50, 100], gridcolor="rgba(255,255,255,0.06)"),
+            **_PLOT_LAYOUT,
+            xaxis=dict(title="On-Time Arrival Rate (%)", range=[50, 100], gridcolor="#2C2F33"),
             yaxis=dict(title="Airline Code"),
             coloraxis_showscale=False,
-            margin=dict(l=40, r=40, t=60, b=40),
-            height=400,
+            height=420,
         )
         st.plotly_chart(fig_carrier, use_container_width=True)
 
     with bench_c2:
-        # Top 15 Congested Hubs (Arrival Delays)
         hub_perf = (
             completed_df.groupby("origin_airport_code")
             .agg(
@@ -731,22 +1083,22 @@ with tab_benchmark:
             orientation="h",
             text=top_hubs_perf["delay_rate"].apply(lambda x: f"{x:.1f}%"),
             color="delay_rate",
-            color_continuous_scale=["#3FB950", "#F85149"],
-            title="<b>Top 15 Most Congested Departure Hubs (≥2,000 flights)</b>",
+            color_continuous_scale=["#4CAF82", "#C0392B"],
+            title="<b>Top 15 Most Congested Departure Hubs (>=2,000 flights)</b>",
         )
         fig_hub.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(22, 27, 34, 0.4)",
-            xaxis=dict(title="Delayed Flight Rate (% ≥15m)", gridcolor="rgba(255,255,255,0.06)"),
+            **_PLOT_LAYOUT,
+            xaxis=dict(title="Delayed Flight Rate (% >=15m)", gridcolor="#2C2F33"),
             yaxis=dict(title="Airport Code", autorange="reversed"),
             coloraxis_showscale=False,
-            margin=dict(l=40, r=40, t=60, b=40),
-            height=400,
+            height=420,
         )
         st.plotly_chart(fig_hub, use_container_width=True)
 
-    # Route Risk Corridor Matrix
-    st.markdown("#### High-Risk Operational Corridors")
+    st.markdown(
+        '<p style="font-weight:600; color:#9AA0A8; margin: 16px 0 6px 0; font-size:0.88rem;">High-Risk Operational Corridors</p>',
+        unsafe_allow_html=True,
+    )
     route_stats = (
         completed_df.groupby("route_code")
         .agg(
@@ -766,31 +1118,26 @@ with tab_benchmark:
         size="total_delay_cost",
         color="delay_rate",
         hover_name="route_code",
-        color_continuous_scale=["#3FB950", "#D29922", "#F85149"],
+        color_continuous_scale=["#4CAF82", "#D4A017", "#C0392B"],
         title="<b>Route Risk Matrix: Volume vs. Average Delay Duration</b>",
         labels={"volume": "Monthly Flight Volume", "avg_delay": "Average Delay (Minutes)", "delay_rate": "Delay Rate (%)"},
     )
     fig_routes.update_layout(
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(22, 27, 34, 0.4)",
-        xaxis=dict(gridcolor="rgba(255,255,255,0.06)"),
-        yaxis=dict(gridcolor="rgba(255,255,255,0.06)"),
+        **_PLOT_LAYOUT,
         height=400,
     )
     st.plotly_chart(fig_routes, use_container_width=True)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# =============================================================================
 # TAB 4: DIAGNOSTICS & BUSINESS RECOMMENDATIONS
-# ─────────────────────────────────────────────────────────────────────────────
+# =============================================================================
 with tab_diagnostics:
     st.markdown(
         """
-        <div style="margin-bottom: 20px;">
-            <h2 style="margin: 0; color: #FFFFFF; font-weight: 700;">Model Diagnostics, Error Analysis & Business ROI</h2>
-            <p style="color: #8B949E; margin: 4px 0 0 0; font-size: 0.90rem;">
-                Rigorous evaluation across baselines, out-of-time test validation, residual analysis, and actionable business decisions.
-            </p>
+        <div class="section-header">
+            <h2>Model Diagnostics, Error Analysis & Business ROI</h2>
+            <p>Rigorous evaluation across baselines, out-of-time test validation, residual analysis, and actionable business recommendations.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -799,11 +1146,14 @@ with tab_diagnostics:
     diag_c1, diag_c2 = st.columns([3, 2])
 
     with diag_c1:
-        st.markdown("#### Out-of-Time Model Benchmark Comparison")
+        st.markdown(
+            '<p style="font-weight:600; color:#9AA0A8; margin-bottom:6px; font-size:0.88rem;">Out-of-Time Model Benchmark Comparison</p>',
+            unsafe_allow_html=True,
+        )
         st.markdown(
             """
-            <div style="font-size: 0.85rem; color: #8B949E; margin-bottom: 12px;">
-                Models are evaluated on a strict <b>chronological out-of-time split</b> (Days 1–23 train: 345,440 flights; Days 24–31 test: 111,573 flights) to prevent temporal data leakage.
+            <div style="font-size: 0.83rem; color: #606870; margin-bottom: 12px;">
+                Models evaluated on a strict <b style="color:#9AA0A8;">chronological out-of-time split</b> — Days 1–23 train (345,440 flights), Days 24–31 test (111,573 flights) — to prevent temporal data leakage.
             </div>
             """,
             unsafe_allow_html=True,
@@ -812,30 +1162,38 @@ with tab_diagnostics:
         reg_results = metadata.get("regression_results", [])
         if reg_results:
             bench_df = pd.DataFrame(reg_results)
-            bench_df.columns = ["Model Architecture", "MAE (min)", "RMSE (min)", "Median AE (min)", "MAPE (%)", "R²"]
+            bench_df.columns = ["Model Architecture", "MAE (min)", "RMSE (min)", "Median AE (min)", "MAPE (%)", "R2"]
             st.dataframe(bench_df, use_container_width=True, hide_index=True)
         else:
-            st.info("Run `python -m src.ml.train` to view the benchmark comparison table.")
+            st.info("Run `python -m src.ml.train` to populate the benchmark comparison table.")
 
-        st.markdown("#### Classification Performance (Delay ≥ 15 min)")
+        st.markdown(
+            '<p style="font-weight:600; color:#9AA0A8; margin: 14px 0 6px 0; font-size:0.88rem;">Classification Performance (Delay >= 15 min)</p>',
+            unsafe_allow_html=True,
+        )
         cls_results = metadata.get("classification_results", [])
         if cls_results:
             cls_df = pd.DataFrame(cls_results)
             cls_df.columns = ["Model Architecture", "ROC-AUC", "Accuracy", "Precision", "Recall", "F1-Score"]
             st.dataframe(cls_df, use_container_width=True, hide_index=True)
 
-        st.markdown("#### Analytical Discussion: Error Characteristics & Heavy-Tail Delays")
+        st.markdown(
+            '<p style="font-weight:600; color:#9AA0A8; margin: 14px 0 6px 0; font-size:0.88rem;">Error Characteristics & Heavy-Tail Delays</p>',
+            unsafe_allow_html=True,
+        )
         st.markdown(
             """
             > **Why is RMSE notably higher than MAE?**
-            > 
-            > In commercial aviation, delay distributions exhibit severe **positive skewness (heavy right-tail)**. While >78% of flights arrive within ±10 minutes of schedule (driving median absolute error near zero), a small fraction of flights encounter catastrophic multi-hour delays caused by ATC ground stops or severe winter storms. 
-            > Because RMSE squares errors, these black swan delays penalize RMSE heavily. Using **MAE and Median Absolute Error** provides a much more robust operational metric for daily flight scheduling.
+            >
+            > In commercial aviation, arrival delay exhibits severe positive skewness. While over 78% of flights arrive within schedule, a small fraction encounter multi-hour delays from ATC ground stops or severe weather events. Because RMSE squares deviations, these outlier delays inflate RMSE significantly. **MAE and Median Absolute Error** provide more robust operational metrics for daily gate scheduling.
             """
         )
 
     with diag_c2:
-        st.markdown("#### Permutation Feature Drivers")
+        st.markdown(
+            '<p style="font-weight:600; color:#9AA0A8; margin-bottom:6px; font-size:0.88rem;">Permutation Feature Importance</p>',
+            unsafe_allow_html=True,
+        )
         feat_imp = metadata.get("feature_importance", {})
         if feat_imp:
             feat_df = pd.DataFrame(
@@ -849,22 +1207,23 @@ with tab_diagnostics:
                 orientation="h",
                 text=feat_df["Importance"].apply(lambda v: f"{v*100:.1f}%"),
                 color="Importance",
-                color_continuous_scale=["#1F6FEB", "#58A6FF"],
+                color_continuous_scale=["#2C5F4A", "#4CAF82"],
                 title="<b>Top Delay Predictors (Permutation Importance)</b>",
             )
             fig_feat.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(22, 27, 34, 0.4)",
+                **_PLOT_LAYOUT,
                 coloraxis_showscale=False,
-                xaxis=dict(title="Normalized Importance", gridcolor="rgba(255,255,255,0.06)"),
+                xaxis=dict(title="Normalized Importance", gridcolor="#2C2F33"),
                 yaxis=dict(title=""),
-                margin=dict(l=40, r=40, t=60, b=40),
                 height=340,
             )
             st.plotly_chart(fig_feat, use_container_width=True)
 
-    st.markdown("---")
-    st.markdown("### 💼 Actionable Business Recommendations & ROI")
+    st.markdown("<hr style='border-color:#2C2F33; margin:18px 0;'>", unsafe_allow_html=True)
+    st.markdown(
+        '<p style="font-weight:600; color:#9AA0A8; margin-bottom:14px; font-size:0.88rem; text-transform:uppercase; letter-spacing:0.06em;">Actionable Business Recommendations & ROI</p>',
+        unsafe_allow_html=True,
+    )
 
     recs = metadata.get("business_recommendations", [])
     if not recs:
@@ -890,17 +1249,15 @@ with tab_diagnostics:
             )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# =============================================================================
 # TAB 5: SQL & STAR SCHEMA INTELLIGENCE
-# ─────────────────────────────────────────────────────────────────────────────
+# =============================================================================
 with tab_sql:
     st.markdown(
         """
-        <div style="margin-bottom: 20px;">
-            <h2 style="margin: 0; color: #FFFFFF; font-weight: 700;">SQL & Star Schema Intelligence</h2>
-            <p style="color: #8B949E; margin: 4px 0 0 0; font-size: 0.90rem;">
-                Explore analytical warehouse views, star schema design, and production SQL patterns deployed in the warehouse.
-            </p>
+        <div class="section-header">
+            <h2>SQL & Star Schema Intelligence</h2>
+            <p>Explore analytical warehouse views, star schema design, and production SQL patterns deployed in the warehouse.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -909,36 +1266,42 @@ with tab_sql:
     sql_c1, sql_c2 = st.columns([1, 1])
 
     with sql_c1:
-        st.markdown("#### Dimensional Warehouse Architecture (Star Schema)")
+        st.markdown(
+            '<p style="font-weight:600; color:#9AA0A8; margin-bottom:8px; font-size:0.88rem;">Dimensional Warehouse Architecture (Star Schema)</p>',
+            unsafe_allow_html=True,
+        )
         st.markdown(
             """
             ```
-            ┌──────────────────────────────────────────────┐
-            │          fact_flight (Fact Table)            │
-            ├──────────────────────────────────────────────┤
-            │ flight_key (PK)                              │
-            │ date_key (FK)  ───────► dim_date             │
-            │ airline_key (FK) ─────► dim_airline          │
-            │ origin_airport_key ───► dim_airport          │
-            │ dest_airport_key ─────► dim_airport          │
-            │ scheduled_departure_time                     │
-            │ actual_departure_time                        │
-            │ arrival_delay_minutes                        │
-            │ arrival_delayed_15                           │
-            │ carrier_delay_minutes                        │
-            │ weather_delay_minutes                        │
-            │ national_air_system_delay_minutes            │
-            │ late_aircraft_delay_minutes                  │
-            │ total_reported_delay_minutes                 │
-            └──────────────────────────────────────────────┘
+            +----------------------------------------------+
+            |       fact_flight  (Fact Table)              |
+            +----------------------------------------------+
+            | flight_key (PK)                              |
+            | date_key (FK)    -----> dim_date             |
+            | airline_key (FK) -----> dim_airline          |
+            | origin_airport_key ---> dim_airport          |
+            | dest_airport_key ----->  dim_airport         |
+            | scheduled_departure_time                     |
+            | actual_departure_time                        |
+            | arrival_delay_minutes                        |
+            | arrival_delayed_15                           |
+            | carrier_delay_minutes                        |
+            | weather_delay_minutes                        |
+            | national_air_system_delay_minutes            |
+            | late_aircraft_delay_minutes                  |
+            | total_reported_delay_minutes                 |
+            +----------------------------------------------+
             ```
             """
         )
 
     with sql_c2:
-        st.markdown("#### Production Analytical Views")
+        st.markdown(
+            '<p style="font-weight:600; color:#9AA0A8; margin-bottom:8px; font-size:0.88rem;">Production Analytical Views</p>',
+            unsafe_allow_html=True,
+        )
         view_choice = st.selectbox(
-            "Select Analytical SQL View to Inspect",
+            "Select Analytical SQL View",
             options=[
                 "vw_carrier_monthly_performance",
                 "vw_airport_congestion_hourly",
@@ -952,7 +1315,7 @@ with tab_sql:
                 """
 -- Monthly Carrier On-Time Performance & Direct Financial Impact
 CREATE OR REPLACE VIEW warehouse.vw_carrier_monthly_performance AS
-SELECT 
+SELECT
     da.reporting_airline_code,
     dd.year_number,
     dd.month_number,
@@ -974,7 +1337,7 @@ ORDER BY otp_15_pct DESC;
                 """
 -- Hub Congestion Cascade by Departure Hour Block
 CREATE OR REPLACE VIEW warehouse.vw_airport_congestion_hourly AS
-SELECT 
+SELECT
     dp.airport_code,
     dp.city_name,
     ff.scheduled_departure_hour,
@@ -994,13 +1357,14 @@ ORDER BY dp.airport_code, ff.scheduled_departure_hour;
                 """
 -- Decomposition of Root-Cause Delays Across Airspace
 CREATE OR REPLACE VIEW warehouse.vw_delay_cascade_root_cause AS
-SELECT 
+SELECT
     da.reporting_airline_code,
     SUM(ff.carrier_delay_minutes) AS carrier_delay_min,
     SUM(ff.weather_delay_minutes) AS weather_delay_min,
     SUM(ff.national_air_system_delay_minutes) AS nas_delay_min,
     SUM(ff.late_aircraft_delay_minutes) AS late_aircraft_delay_min,
-    ROUND(SUM(ff.late_aircraft_delay_minutes) / NULLIF(SUM(ff.total_reported_delay_minutes), 0) * 100, 2) AS cascade_pct
+    ROUND(SUM(ff.late_aircraft_delay_minutes) /
+          NULLIF(SUM(ff.total_reported_delay_minutes), 0) * 100, 2) AS cascade_pct
 FROM warehouse.fact_flight ff
 JOIN warehouse.dim_airline da ON ff.airline_key = da.airline_key
 WHERE ff.delay_cause_reported = TRUE
@@ -1014,7 +1378,7 @@ ORDER BY late_aircraft_delay_min DESC;
                 """
 -- Top High-Risk Operational Flight Corridors
 CREATE OR REPLACE VIEW warehouse.vw_high_risk_corridors AS
-SELECT 
+SELECT
     ff.route_code,
     orig.airport_code AS origin_code,
     dest.airport_code AS dest_code,
@@ -1032,7 +1396,10 @@ ORDER BY avg_delay_minutes DESC;
                 language="sql",
             )
 
-    st.markdown("#### Live SQL Query Result Preview (Calculated over real flight records)")
+    st.markdown(
+        '<p style="font-weight:600; color:#9AA0A8; margin: 16px 0 6px 0; font-size:0.88rem;">Live SQL Query Result Preview (calculated over real flight records)</p>',
+        unsafe_allow_html=True,
+    )
     sql_preview = (
         completed_df.groupby("reporting_airline_code")
         .agg(
@@ -1046,13 +1413,13 @@ ORDER BY avg_delay_minutes DESC;
     )
     st.dataframe(sql_preview, use_container_width=True, hide_index=True)
 
-# ─── Footer ───────────────────────────────────────────────────────────────────
-st.markdown("---")
+# --- Footer -------------------------------------------------------------------
+st.markdown("<hr style='border-color:#2C2F33; margin-top:28px;'>", unsafe_allow_html=True)
 st.markdown(
     """
-    <div style="text-align: center; color: #8B949E; font-size: 0.80rem; padding: 10px 0;">
-        <b>AeroPulse Aviation Intelligence</b> | End-to-End Data Science, Operations Research & Analytics Platform<br>
-        Built with Streamlit, Plotly, Scikit-Learn, PyArrow & PostgreSQL | MIT Licensed
+    <div style="text-align: center; color: #4A5058; font-size: 0.76rem; padding: 10px 0 24px 0;">
+        AeroPulse Aviation Intelligence &mdash; End-to-End Data Science, Operations Research &amp; Analytics Platform<br>
+        Built with Streamlit, Plotly, Scikit-Learn, PyArrow &amp; PostgreSQL &mdash; MIT Licensed
     </div>
     """,
     unsafe_allow_html=True,
