@@ -1,0 +1,50 @@
+# Python virtual environment
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Environment variables
+.env
+
+# Jupyter temporary files
+.ipynb_checkpoints/
+
+# Raw and temporary data
+data/raw/*
+!data/raw/.gitkeep
+
+data/interim/*
+!data/interim/.gitkeep
+
+# Track processed clean parquet for instant deployment
+data/processed/*
+!data/processed/.gitkeep
+!data/processed/*.parquet
+
+data/reference/*
+!data/reference/.gitkeep
+
+# Track production ML models (<1MB) for cloud deployment
+models/*
+!models/.gitkeep
+!models/*.joblib
+!models/*.json
+
+
+# Power BI temporary files
+~$*.pbix
+*.pbit.tmp
+
+# Logs
+*.log
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/

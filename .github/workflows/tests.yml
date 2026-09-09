@@ -1,0 +1,73 @@
+name: AeroPulse CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: aeropulse_db
+          POSTGRES_USER: aeropulse_admin
+          POSTGRES_PASSWORD: aeropulse_pass
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U aeropulse_admin -d aeropulse_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5433
+      POSTGRES_DATABASE: aeropulse_db
+      POSTGRES_USER: aeropulse_admin
+      POSTGRES_PASSWORD: aeropulse_pass
+      RUN_POSTGRES_TESTS: "1"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip check
+
+      - name: Create database schema
+        env:
+          PGPASSWORD: aeropulse_pass
+        run: |
+          psql -h localhost -p 5433 -U aeropulse_admin -d aeropulse_db \
+            -v ON_ERROR_STOP=1 -f sql/schema/001_create_warehouse.sql
+          psql -h localhost -p 5433 -U aeropulse_admin -d aeropulse_db \
+            -v ON_ERROR_STOP=1 -f sql/analytics/001_create_analytics_views.sql
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Compile source files
+        run: python -m compileall -q src

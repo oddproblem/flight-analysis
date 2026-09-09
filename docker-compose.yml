@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: aeropulse_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DATABASE:-aeropulse_db}
+      POSTGRES_USER: ${POSTGRES_USER:-aeropulse_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aeropulse_pass}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - aeropulse_pgdata:/var/lib/postgresql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-aeropulse_admin} -d ${POSTGRES_DATABASE:-aeropulse_db}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  aeropulse_pgdata:
