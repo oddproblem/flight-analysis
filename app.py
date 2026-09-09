@@ -15,6 +15,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 
 from src.ml.features import FAA_DELAY_COST_PER_MINUTE_USD
 from src.ml.predict import FlightDelayPredictor
@@ -27,25 +28,19 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- Global Styling -----------------------------------------------------------
-CHATBOT_CSS_JS = """
+# --- Global Styling (CSS only — scripts must go via components.html) ----------
+DASHBOARD_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 html, body, [class*="css"] {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
-
-/* Override Streamlit default dark background with grey palette */
-.main {
-    background-color: #1A1C1E;
-}
+.main { background-color: #1A1C1E; }
 section[data-testid="stSidebar"] {
     background-color: #1E2022;
     border-right: 1px solid #2C2F33;
 }
-
-/* KPI Cards */
 .kpi-card {
     background: #242628;
     border: 1px solid #2C2F33;
@@ -53,431 +48,400 @@ section[data-testid="stSidebar"] {
     padding: 20px;
     transition: border-color 0.2s ease, background 0.2s ease;
 }
-.kpi-card:hover {
-    border-color: #4CAF82;
-    background: #272A2C;
-}
+.kpi-card:hover { border-color: #4CAF82; background: #272A2C; }
 .kpi-title {
-    color: #858C94;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    margin-bottom: 6px;
+    color: #858C94; font-size: 0.75rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px;
 }
 .kpi-value {
-    color: #D4D8DC;
-    font-size: 1.75rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    margin-bottom: 4px;
+    color: #D4D8DC; font-size: 1.75rem; font-weight: 700;
+    letter-spacing: -0.02em; margin-bottom: 4px;
 }
-.kpi-delta-good {
-    color: #4CAF82;
-    font-size: 0.80rem;
-    font-weight: 500;
-}
-.kpi-delta-bad {
-    color: #C0392B;
-    font-size: 0.80rem;
-    font-weight: 500;
-}
-.kpi-subtext {
-    color: #606870;
-    font-size: 0.74rem;
-    margin-top: 4px;
-}
-
-/* Recommendation cards */
+.kpi-delta-good { color: #4CAF82; font-size: 0.80rem; font-weight: 500; }
+.kpi-delta-bad  { color: #C0392B; font-size: 0.80rem; font-weight: 500; }
+.kpi-subtext    { color: #606870; font-size: 0.74rem; margin-top: 4px; }
 .rec-card {
-    background: #242628;
-    border-left: 3px solid #4CAF82;
-    border-radius: 0 8px 8px 0;
-    padding: 16px 18px;
-    margin-bottom: 14px;
+    background: #242628; border-left: 3px solid #4CAF82;
+    border-radius: 0 8px 8px 0; padding: 16px 18px; margin-bottom: 14px;
 }
 .rec-tag {
-    font-size: 0.70rem;
-    font-weight: 700;
-    letter-spacing: 0.09em;
-    color: #4CAF82;
-    text-transform: uppercase;
-    margin-bottom: 4px;
+    font-size: 0.70rem; font-weight: 700; letter-spacing: 0.09em;
+    color: #4CAF82; text-transform: uppercase; margin-bottom: 4px;
 }
-.rec-title {
-    font-size: 1.00rem;
-    font-weight: 600;
-    color: #D4D8DC;
-    margin: 4px 0 6px 0;
-}
-.rec-body {
-    font-size: 0.84rem;
-    color: #9AA0A8;
-    line-height: 1.5;
-}
-.rec-roi {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: #4CAF82;
-    margin-top: 8px;
-}
-
-/* Section dividers */
-.section-header {
-    margin-bottom: 18px;
-}
-.section-header h2 {
-    margin: 0;
-    color: #D4D8DC;
-    font-weight: 700;
-    font-size: 1.35rem;
-}
-.section-header p {
-    color: #858C94;
-    margin: 4px 0 0 0;
-    font-size: 0.88rem;
-}
-
-/* ---- Chatbot Widget ---- */
-#chat-fab {
-    position: fixed;
-    bottom: 28px;
-    right: 28px;
-    width: 52px;
-    height: 52px;
-    border-radius: 50%;
-    background: #4CAF82;
-    color: #111;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 18px rgba(76,175,130,0.35);
-    z-index: 99999;
-    font-size: 1.3rem;
-    transition: background 0.2s ease, box-shadow 0.2s ease;
-}
-#chat-fab:hover {
-    background: #3d9e70;
-    box-shadow: 0 6px 24px rgba(76,175,130,0.5);
-}
-#chat-window {
-    position: fixed;
-    bottom: 92px;
-    right: 28px;
-    width: 360px;
-    height: 480px;
-    background: #1E2022;
-    border: 1px solid #2C2F33;
-    border-radius: 14px;
-    display: none;
-    flex-direction: column;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.55);
-    z-index: 99998;
-    overflow: hidden;
-    font-family: 'Inter', sans-serif;
-}
-#chat-header {
-    background: #242628;
-    border-bottom: 1px solid #2C2F33;
-    padding: 14px 18px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
-}
-#chat-header .chat-title {
-    color: #D4D8DC;
-    font-weight: 600;
-    font-size: 0.95rem;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-#chat-header .chat-status {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    background: #4CAF82;
-    border-radius: 50%;
-}
-#chat-close {
-    background: none;
-    border: none;
-    color: #858C94;
-    cursor: pointer;
-    font-size: 1.1rem;
-    line-height: 1;
-    padding: 0;
-}
-#chat-close:hover { color: #D4D8DC; }
-#chat-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    scrollbar-width: thin;
-    scrollbar-color: #2C2F33 transparent;
-}
-#chat-messages::-webkit-scrollbar { width: 4px; }
-#chat-messages::-webkit-scrollbar-thumb { background: #2C2F33; border-radius: 4px; }
-.chat-msg {
-    max-width: 86%;
-    padding: 10px 13px;
-    border-radius: 12px;
-    font-size: 0.84rem;
-    line-height: 1.5;
-    word-wrap: break-word;
-}
-.chat-msg.user {
-    background: #4CAF82;
-    color: #111;
-    align-self: flex-end;
-    border-bottom-right-radius: 4px;
-}
-.chat-msg.assistant {
-    background: #2A2D30;
-    color: #C8CDD3;
-    align-self: flex-start;
-    border-bottom-left-radius: 4px;
-    border: 1px solid #2C2F33;
-}
-.chat-msg.typing {
-    background: #2A2D30;
-    color: #606870;
-    align-self: flex-start;
-    font-style: italic;
-    border: 1px solid #2C2F33;
-    border-bottom-left-radius: 4px;
-}
-#chat-input-row {
-    display: flex;
-    gap: 8px;
-    padding: 12px 14px;
-    border-top: 1px solid #2C2F33;
-    flex-shrink: 0;
-    background: #1E2022;
-}
-#chat-input {
-    flex: 1;
-    background: #2A2D30;
-    border: 1px solid #2C2F33;
-    border-radius: 8px;
-    color: #D4D8DC;
-    padding: 9px 12px;
-    font-size: 0.84rem;
-    font-family: 'Inter', sans-serif;
-    outline: none;
-    resize: none;
-    min-height: 38px;
-    max-height: 90px;
-    line-height: 1.4;
-}
-#chat-input:focus { border-color: #4CAF82; }
-#chat-send {
-    background: #4CAF82;
-    color: #111;
-    border: none;
-    border-radius: 8px;
-    padding: 0 14px;
-    cursor: pointer;
-    font-size: 0.90rem;
-    font-weight: 600;
-    transition: background 0.15s ease;
-    flex-shrink: 0;
-}
-#chat-send:hover { background: #3d9e70; }
-#chat-send:disabled { background: #2C2F33; color: #606870; cursor: not-allowed; }
-#chat-api-row {
-    padding: 10px 14px 0 14px;
-    flex-shrink: 0;
-}
-#chat-api-key {
-    width: 100%;
-    background: #2A2D30;
-    border: 1px solid #2C2F33;
-    border-radius: 8px;
-    color: #858C94;
-    padding: 7px 10px;
-    font-size: 0.78rem;
-    font-family: 'Inter', sans-serif;
-    outline: none;
-    box-sizing: border-box;
-}
-#chat-api-key:focus { border-color: #4CAF82; color: #D4D8DC; }
+.rec-title { font-size: 1.00rem; font-weight: 600; color: #D4D8DC; margin: 4px 0 6px 0; }
+.rec-body  { font-size: 0.84rem; color: #9AA0A8; line-height: 1.5; }
+.rec-roi   { font-size: 0.82rem; font-weight: 600; color: #4CAF82; margin-top: 8px; }
+.section-header { margin-bottom: 18px; }
+.section-header h2 { margin: 0; color: #D4D8DC; font-weight: 700; font-size: 1.35rem; }
+.section-header p  { color: #858C94; margin: 4px 0 0 0; font-size: 0.88rem; }
 </style>
+"""
+st.markdown(DASHBOARD_CSS, unsafe_allow_html=True)
 
-<!-- Floating Action Button -->
-<button id="chat-fab" onclick="toggleChat()" title="Open AeroPulse Assistant">
-    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
-        <path d="M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4.414a1 1 0 0 0-.707.293L.854 15.146A.5.5 0 0 1 0 14.793V2z"/>
-    </svg>
-</button>
-
-<!-- Chat Window -->
-<div id="chat-window">
-    <div id="chat-header">
-        <div class="chat-title">
-            <span class="chat-status"></span>
-            AeroPulse Assistant
-        </div>
-        <button id="chat-close" onclick="toggleChat()" title="Close">&#x2715;</button>
-    </div>
-    <div id="chat-api-row">
-        <input id="chat-api-key" type="password" placeholder="Paste your OpenRouter API key to start..." autocomplete="off" />
-    </div>
-    <div id="chat-messages">
-        <div class="chat-msg assistant">
-            Hello. I am the AeroPulse Operations Assistant. I can answer questions about flight delay analytics, model methodology, business recommendations, and the data pipeline. Paste your API key above to begin.
-        </div>
-    </div>
-    <div id="chat-input-row">
-        <textarea id="chat-input" placeholder="Ask about delays, routes, ML models..." rows="1" onkeydown="handleKey(event)"></textarea>
-        <button id="chat-send" onclick="sendMessage()">Send</button>
-    </div>
-</div>
-
+# --- Chatbot Widget -----------------------------------------------------------
+_CHATBOT_HTML = """<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:transparent;">
 <script>
-(function() {
-    var SYSTEM_PROMPT = `You are the AeroPulse Operations Assistant, an expert in aviation delay analytics and the AeroPulse Intelligence platform.
+(function () {
+    var p = window.parent;
+    if (!p || !p.document) return;
 
-Key facts about the AeroPulse project:
-- Analyzes 469,968 real-world U.S. DOT On-Time Performance flight records from January 2024
-- Uses Histogram Gradient Boosting (HistGBM) for delay forecasting and risk classification
-- Training split: Days 1-23 (345,440 flights) | Test split: Days 24-31 (111,573 flights) - strict chronological out-of-time split
-- Delay classification threshold: 15 minutes (FAA OTP-15 standard)
-- Financial benchmark: FAA $101.90 per minute of delay
-- Classifier ROC-AUC: 0.6096 | Continuous MAE: 16.56 min | Median AE: 11.75 min
-- Top predictor: route_avg_delay_minutes (68.6% permutation importance)
-- Key insight: 78%+ of flights arrive on time, but severe right-skewness drives high RMSE from outlier events
-- Business recommendations: Dynamic hub buffering ($1.8M/month savings), corridor padding (+4.2% OTP), crew reserve staging ($3.4M/quarter)
-- Star schema warehouse: fact_flight, dim_airline, dim_airport, dim_date
-- Built with Python, Pandas, Scikit-Learn, Streamlit, Plotly, PyArrow
-
-Answer concisely and accurately. If asked about something outside aviation/data analytics, politely redirect.`;
-
-    var conversationHistory = [{ role: "system", content: SYSTEM_PROMPT }];
-    var isOpen = false;
-    var isLoading = false;
-
-    window.toggleChat = function() {
-        isOpen = !isOpen;
-        var win = document.getElementById("chat-window");
-        win.style.display = isOpen ? "flex" : "none";
-        if (isOpen) {
-            document.getElementById("chat-input").focus();
-        }
+    // ── Persistent State on window.parent (survives Streamlit reruns) ─────────
+    p.__ap_chat = p.__ap_chat || {
+        history: [],
+        messages: [],
+        apiKey: '',
+        isOpen: false,
+        msgCount: 0,
+        lastSend: 0
     };
 
-    window.handleKey = function(e) {
-        if (e.key === "Enter" && !e.shiftKey) {
+    var state = p.__ap_chat;
+
+    // ── Fallback Model Chain & Restrictions ──────────────────────────────────
+    var MODELS = [
+        { id: 'google/gemini-2.0-flash-001', name: 'Gemini 2.0 Flash' },
+        { id: 'google/gemini-flash-1.5', name: 'Gemini 1.5 Flash' },
+        { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B' },
+        { id: 'mistralai/mistral-small-3.2-24b-instruct', name: 'Mistral Small 24B' }
+    ];
+    var MAX_MSGS   = 25;    // Session limit to restrict API spend
+    var MAX_CHARS  = 400;   // Character limit per message
+    var COOLDOWN   = 3500;  // 3.5s cooldown between sends
+    var MAX_TOKENS = 450;   // Token ceiling to control cost
+
+    var SYS_PROMPT = 'You are the AeroPulse Flight Operations AI Assistant. '
+        + 'Provide concise, professional insights on aviation operations, delay analytics, and predictive models. '
+        + 'Key facts: 469,968 real U.S. DOT flight records (Jan 2024); HistGBM regression + classification; '
+        + 'chronological split Days 1-23 train (345,440 flights) / Days 24-31 test (111,573 flights); '
+        + 'FAA OTP-15 threshold; $101.90/min FAA delay cost benchmark; ROC-AUC 0.6096; MAE 16.56 min; '
+        + 'top predictor route_avg_delay_minutes (68.6% importance); hub buffering saves $1.8M/mo; '
+        + 'corridor padding +4.2% OTP; crew staging avoids $3.4M/quarter; star schema warehouse; '
+        + 'stack: Python, Pandas, Scikit-Learn, Streamlit, Plotly, PyArrow. '
+        + 'Keep responses under 3 paragraphs. If asked about non-aviation/data topics, politely decline in 1 sentence to conserve tokens.';
+
+    if (state.history.length === 0) {
+        state.history.push({ role: 'system', content: SYS_PROMPT });
+    }
+
+    // ── Clean Up Any Previous Injection (prevent detached event closures) ───
+    try {
+        var oldFab = p.document.getElementById('ap-fab');
+        if (oldFab) oldFab.remove();
+        var oldWin = p.document.getElementById('ap-win');
+        if (oldWin) oldWin.remove();
+        var oldStyle = p.document.getElementById('ap-style');
+        if (oldStyle) oldStyle.remove();
+    } catch (e) {
+        console.warn('[AeroPulse] Error cleaning old widget DOM:', e);
+    }
+
+    // ── Inject Styles into Parent Head ───────────────────────────────────────
+    var styleEl = p.document.createElement('style');
+    styleEl.id = 'ap-style';
+    styleEl.textContent = [
+        '#ap-fab {',
+        '  position: fixed; bottom: 28px; right: 28px; width: 52px; height: 52px;',
+        '  border-radius: 50%; background: #4CAF82; color: #111; border: none; cursor: pointer;',
+        '  display: flex; align-items: center; justify-content: center;',
+        '  box-shadow: 0 4px 20px rgba(76,175,130,0.42); z-index: 999999;',
+        '  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;',
+        '}',
+        '#ap-fab:hover { background: #3fa173; transform: scale(1.05); box-shadow: 0 6px 26px rgba(76,175,130,0.55); }',
+        '#ap-fab:active { transform: scale(0.96); }',
+        '#ap-win {',
+        '  position: fixed; bottom: 92px; right: 28px; width: 375px; height: 510px;',
+        '  background: #1E2022; border: 1px solid #2C2F33; border-radius: 14px;',
+        '  display: none; flex-direction: column;',
+        '  box-shadow: 0 16px 48px rgba(0,0,0,0.65); z-index: 999998; overflow: hidden;',
+        '  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;',
+        '}',
+        '#ap-hdr {',
+        '  background: #242628; border-bottom: 1px solid #2C2F33;',
+        '  padding: 13px 16px; display: flex; align-items: center;',
+        '  justify-content: space-between; flex-shrink: 0;',
+        '}',
+        '.ap-ttl { color: #D4D8DC; font-weight: 600; font-size: 0.90rem; display: flex; align-items: center; gap: 8px; }',
+        '.ap-dot { display: inline-block; width: 8px; height: 8px; background: #4CAF82; border-radius: 50%; }',
+        '#ap-cls { background: none; border: none; color: #858C94; cursor: pointer; font-size: 1.1rem; padding: 0; line-height: 1; }',
+        '#ap-cls:hover { color: #D4D8DC; }',
+        '#ap-key-row { padding: 10px 14px 4px 14px; flex-shrink: 0; background: #1E2022; }',
+        '#ap-key {',
+        '  width: 100%; background: #2A2D30; border: 1px solid #2C2F33; border-radius: 7px;',
+        '  color: #D4D8DC; padding: 7px 10px; font-size: 0.77rem; font-family: inherit;',
+        '  outline: none; box-sizing: border-box;',
+        '}',
+        '#ap-key:focus { border-color: #4CAF82; }',
+        '#ap-msgs {',
+        '  flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column;',
+        '  gap: 10px; scrollbar-width: thin; scrollbar-color: #2C2F33 transparent;',
+        '}',
+        '#ap-msgs::-webkit-scrollbar { width: 4px; }',
+        '#ap-msgs::-webkit-scrollbar-thumb { background: #2C2F33; border-radius: 4px; }',
+        '.ap-m {',
+        '  max-width: 86%; padding: 9px 12px; border-radius: 11px; font-size: 0.83rem;',
+        '  line-height: 1.48; word-wrap: break-word; white-space: pre-wrap;',
+        '}',
+        '.ap-m.u { background: #4CAF82; color: #111; align-self: flex-end; border-bottom-right-radius: 3px; font-weight: 500; }',
+        '.ap-m.b { background: #2A2D30; color: #D4D8DC; align-self: flex-start; border-bottom-left-radius: 3px; border: 1px solid #2C2F33; }',
+        '.ap-m.s { background: #242628; color: #858C94; font-style: italic; align-self: flex-start; border-bottom-left-radius: 3px; border: 1px solid #2C2F33; font-size: 0.78rem; }',
+        '.ap-via { font-size: 0.71rem; color: #606870; margin-top: 5px; font-style: italic; }',
+        '#ap-footer-info {',
+        '  display: flex; justify-content: space-between; align-items: center;',
+        '  padding: 3px 14px; flex-shrink: 0; font-size: 0.71rem; color: #606870; background: #1E2022;',
+        '}',
+        '#ap-inp-row {',
+        '  display: flex; gap: 8px; padding: 10px 12px;',
+        '  border-top: 1px solid #2C2F33; flex-shrink: 0; background: #1E2022;',
+        '}',
+        '#ap-inp {',
+        '  flex: 1; background: #2A2D30; border: 1px solid #2C2F33; border-radius: 7px;',
+        '  color: #D4D8DC; padding: 8px 11px; font-size: 0.83rem; font-family: inherit;',
+        '  outline: none; resize: none; min-height: 36px; max-height: 84px; line-height: 1.4;',
+        '}',
+        '#ap-inp:focus { border-color: #4CAF82; }',
+        '#ap-snd {',
+        '  background: #4CAF82; color: #111; border: none; border-radius: 7px;',
+        '  padding: 0 14px; cursor: pointer; font-size: 0.86rem; font-weight: 600;',
+        '  transition: background 0.15s; flex-shrink: 0;',
+        '}',
+        '#ap-snd:hover { background: #3fa173; }',
+        '#ap-snd:disabled { background: #2C2F33; color: #4A5058; cursor: not-allowed; }'
+    ].join('');
+    p.document.head.appendChild(styleEl);
+
+    // ── Build DOM Elements in Parent ─────────────────────────────────────────
+    var pd = p.document;
+
+    var fab = pd.createElement('button');
+    fab.id = 'ap-fab';
+    fab.title = 'AeroPulse Operations Assistant';
+    fab.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16"><path d="M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4.414a1 1 0 0 0-.707.293L.854 15.146A.5.5 0 0 1 0 14.793V2z"/></svg>';
+    pd.body.appendChild(fab);
+
+    var win = pd.createElement('div');
+    win.id = 'ap-win';
+    win.innerHTML =
+        '<div id="ap-hdr">' +
+            '<div class="ap-ttl"><span class="ap-dot"></span> AeroPulse Assistant</div>' +
+            '<button id="ap-cls" title="Close">&#x2715;</button>' +
+        '</div>' +
+        '<div id="ap-key-row">' +
+            '<input id="ap-key" type="password" placeholder="Paste OpenRouter API key (sk-or-v1-...)..." autocomplete="off">' +
+        '</div>' +
+        '<div id="ap-msgs"></div>' +
+        '<div id="ap-footer-info">' +
+            '<span id="ap-status-hint">Gemini 2.0 Flash + 3 fallbacks</span>' +
+            '<span id="ap-quota">0 / ' + MAX_MSGS + ' msgs</span>' +
+        '</div>' +
+        '<div id="ap-inp-row">' +
+            '<textarea id="ap-inp" placeholder="Ask about delay metrics, routes, models..." rows="1" maxlength="' + MAX_CHARS + '"></textarea>' +
+            '<button id="ap-snd">Send</button>' +
+        '</div>';
+    pd.body.appendChild(win);
+
+    // ── Restore State ────────────────────────────────────────────────────────
+    var keyInput = pd.getElementById('ap-key');
+    if (state.apiKey) {
+        keyInput.value = state.apiKey;
+    }
+    keyInput.addEventListener('input', function() {
+        state.apiKey = this.value.trim();
+    });
+
+    if (state.isOpen) {
+        win.style.display = 'flex';
+    }
+
+    var msgsContainer = pd.getElementById('ap-msgs');
+    if (state.messages.length === 0) {
+        var welcomeMsg = 'Hello. I am the AeroPulse Operations Assistant. Ask me about OTP-15 delay benchmarks, HistGBM model performance, route congestion, or financial savings. Enter your OpenRouter key above to start.';
+        appendMsgUI(welcomeMsg, 'b');
+    } else {
+        // Replay existing messages
+        for (var i = 0; i < state.messages.length; i++) {
+            var item = state.messages[i];
+            appendMsgUI(item.text, item.cls, item.via);
+        }
+    }
+    updateQuotaUI();
+
+    // ── Bind Event Listeners ─────────────────────────────────────────────────
+    fab.addEventListener('click', toggleChat);
+    pd.getElementById('ap-cls').addEventListener('click', toggleChat);
+    pd.getElementById('ap-snd').addEventListener('click', handleSend);
+
+    var inp = pd.getElementById('ap-inp');
+    inp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            sendMessage();
+            handleSend();
         }
-    };
+    });
+    inp.addEventListener('input', function () {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 84) + 'px';
+    });
 
-    window.sendMessage = async function() {
-        if (isLoading) return;
-        var input = document.getElementById("chat-input");
-        var apiKeyInput = document.getElementById("chat-api-key");
-        var userText = input.value.trim();
-        var apiKey = apiKeyInput.value.trim();
+    function toggleChat() {
+        state.isOpen = !state.isOpen;
+        win.style.display = state.isOpen ? 'flex' : 'none';
+        if (state.isOpen) {
+            pd.getElementById('ap-inp').focus();
+        }
+    }
 
-        if (!userText) return;
-        if (!apiKey) {
-            appendMsg("Please paste your OpenRouter API key in the field above.", "assistant");
+    // ── Robust Model Fallback Chain ──────────────────────────────────────────
+    async function callWithFallback(messages, apiKey) {
+        var lastError = 'All models unavailable';
+        for (var idx = 0; idx < MODELS.length; idx++) {
+            var modelObj = MODELS[idx];
+            try {
+                var response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + apiKey,
+                        'Content-Type': 'application/json',
+                        'HTTP-Referer': p.location.href,
+                        'X-Title': 'AeroPulse Flight Intelligence'
+                    },
+                    body: JSON.stringify({
+                        model: modelObj.id,
+                        messages: messages,
+                        max_tokens: MAX_TOKENS,
+                        temperature: 0.35
+                    })
+                });
+
+                if (response.status === 429 || response.status === 503) {
+                    lastError = modelObj.name + ' rate-limited (' + response.status + '). Trying fallback...';
+                    console.warn('[AeroPulse Fallback]', lastError);
+                    continue;
+                }
+
+                var data = await response.json();
+                if (data.error) {
+                    lastError = data.error.message || 'API error';
+                    console.warn('[AeroPulse API Error]', modelObj.name, lastError);
+                    continue;
+                }
+
+                if (data.choices && data.choices[0] && data.choices[0].message) {
+                    return {
+                        content: data.choices[0].message.content,
+                        modelName: modelObj.name
+                    };
+                }
+            } catch (err) {
+                lastError = 'Network error contacting ' + modelObj.name;
+                console.warn('[AeroPulse Network Error]', err);
+            }
+        }
+        throw new Error(lastError);
+    }
+
+    // ── Send Handler with Budget Restrictions ────────────────────────────────
+    var isSending = false;
+
+    async function handleSend() {
+        if (isSending) return;
+        var key = pd.getElementById('ap-key').value.trim();
+        var inpEl = pd.getElementById('ap-inp');
+        var text = inpEl.value.trim();
+        if (!text) return;
+
+        // Restriction: API Key Required
+        if (!key) {
+            appendMsgUI('Please enter your OpenRouter API key above before sending.', 's');
             return;
         }
 
-        appendMsg(userText, "user");
-        input.value = "";
-        input.style.height = "auto";
+        // Restriction: Session Message Limit (cost cap)
+        if (state.msgCount >= MAX_MSGS) {
+            appendMsgUI('Session budget limit of ' + MAX_MSGS + ' messages reached. Refresh page to reset.', 's');
+            return;
+        }
 
-        conversationHistory.push({ role: "user", content: userText });
+        // Restriction: Query Length Limit
+        if (text.length > MAX_CHARS) {
+            appendMsgUI('Query exceeds ' + MAX_CHARS + ' characters. Please keep questions concise.', 's');
+            return;
+        }
 
-        isLoading = true;
-        var sendBtn = document.getElementById("chat-send");
+        // Restriction: Rate Limit / Cooldown
+        var now = Date.now();
+        if (now - state.lastSend < COOLDOWN) {
+            var waitSec = Math.ceil((COOLDOWN - (now - state.lastSend)) / 1000);
+            appendMsgUI('Rate limit: please wait ' + waitSec + 's before sending another question.', 's');
+            return;
+        }
+
+        // Add User Message
+        appendMsgUI(text, 'u');
+        state.messages.push({ text: text, cls: 'u' });
+        state.history.push({ role: 'user', content: text });
+        inpEl.value = '';
+        inpEl.style.height = 'auto';
+        state.msgCount++;
+        state.lastSend = Date.now();
+        updateQuotaUI();
+
+        // Lock UI during query
+        isSending = true;
+        var sendBtn = pd.getElementById('ap-snd');
         sendBtn.disabled = true;
-
-        var typingId = "typing-" + Date.now();
-        var typingDiv = document.createElement("div");
-        typingDiv.className = "chat-msg typing";
-        typingDiv.id = typingId;
-        typingDiv.textContent = "Thinking...";
-        document.getElementById("chat-messages").appendChild(typingDiv);
-        scrollToBottom();
+        var thinkingDiv = appendMsgUI('Consulting operations models...', 's', null, true);
 
         try {
-            var response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Authorization": "Bearer " + apiKey,
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": window.location.href,
-                    "X-Title": "AeroPulse Intelligence"
-                },
-                body: JSON.stringify({
-                    model: "google/gemini-2.0-flash-001",
-                    messages: conversationHistory,
-                    max_tokens: 600,
-                    temperature: 0.4
-                })
-            });
-
-            var data = await response.json();
-
-            var typingEl = document.getElementById(typingId);
-            if (typingEl) typingEl.remove();
-
-            if (data.error) {
-                appendMsg("API Error: " + (data.error.message || "Unknown error"), "assistant");
-            } else {
-                var reply = data.choices[0].message.content;
-                conversationHistory.push({ role: "assistant", content: reply });
-                appendMsg(reply, "assistant");
-            }
+            var result = await callWithFallback(state.history, key);
+            thinkingDiv.remove();
+            appendMsgUI(result.content, 'b', result.modelName);
+            state.messages.push({ text: result.content, cls: 'b', via: result.modelName });
+            state.history.push({ role: 'assistant', content: result.content });
         } catch (err) {
-            var typingEl2 = document.getElementById(typingId);
-            if (typingEl2) typingEl2.remove();
-            appendMsg("Network error. Please check your API key and internet connection.", "assistant");
+            thinkingDiv.remove();
+            appendMsgUI('Service notice: ' + err.message, 's');
         }
 
-        isLoading = false;
+        isSending = false;
         sendBtn.disabled = false;
-        input.focus();
-    };
-
-    function appendMsg(text, role) {
-        var div = document.createElement("div");
-        div.className = "chat-msg " + role;
-        div.textContent = text;
-        document.getElementById("chat-messages").appendChild(div);
-        scrollToBottom();
+        inpEl.focus();
     }
 
-    function scrollToBottom() {
-        var msgs = document.getElementById("chat-messages");
-        msgs.scrollTop = msgs.scrollHeight;
-    }
-
-    // Auto-resize textarea
-    document.addEventListener("DOMContentLoaded", function() {
-        var ta = document.getElementById("chat-input");
-        if (ta) {
-            ta.addEventListener("input", function() {
-                this.style.height = "auto";
-                this.style.height = Math.min(this.scrollHeight, 90) + "px";
-            });
+    // ── UI Helpers ───────────────────────────────────────────────────────────
+    function appendMsgUI(text, cls, via, returnElement) {
+        var el = pd.createElement('div');
+        el.className = 'ap-m ' + cls;
+        el.textContent = text;
+        if (via) {
+            var viaSpan = pd.createElement('div');
+            viaSpan.className = 'ap-via';
+            viaSpan.textContent = '— via ' + via;
+            el.appendChild(viaSpan);
         }
-    });
+        msgsContainer.appendChild(el);
+        msgsContainer.scrollTop = msgsContainer.scrollHeight;
+        if (returnElement) return el;
+    }
+
+    function updateQuotaUI() {
+        var q = pd.getElementById('ap-quota');
+        if (!q) return;
+        q.textContent = state.msgCount + ' / ' + MAX_MSGS + ' msgs';
+        if (state.msgCount >= MAX_MSGS - 5) {
+            q.style.color = '#C0392B';
+        } else if (state.msgCount >= MAX_MSGS - 10) {
+            q.style.color = '#D4A017';
+        }
+    }
 })();
 </script>
-"""
+</body></html>"""
 
-st.markdown(CHATBOT_CSS_JS, unsafe_allow_html=True)
+# height=0 renders the iframe invisibly while parent injection handles the FAB & window
+components.html(_CHATBOT_HTML, height=0, scrolling=False)
+
 
 # --- Data Caching -------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -635,8 +599,6 @@ _PLOT_LAYOUT = dict(
     plot_bgcolor="#242628",
     font=dict(color="#9AA0A8", size=12),
     margin=dict(l=40, r=40, t=55, b=40),
-    xaxis=dict(gridcolor="#2C2F33", linecolor="#2C2F33"),
-    yaxis=dict(gridcolor="#2C2F33", linecolor="#2C2F33"),
 )
 
 # --- Navigation Tabs ----------------------------------------------------------
