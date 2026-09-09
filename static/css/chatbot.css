@@ -1,0 +1,243 @@
+/* Floating Action Button (FAB) */
+#ap-fab {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #4CAF82;
+  color: #111;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(76, 175, 130, 0.42);
+  z-index: 999999;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+#ap-fab:hover {
+  background: #3fa173;
+  transform: scale(1.05);
+  box-shadow: 0 6px 26px rgba(76, 175, 130, 0.55);
+}
+
+#ap-fab:active {
+  transform: scale(0.96);
+}
+
+/* Chatbot Modal Container */
+#ap-win {
+  position: fixed;
+  bottom: 92px;
+  right: 28px;
+  width: 375px;
+  height: 510px;
+  background: #1E2022;
+  border: 1px solid #2C2F33;
+  border-radius: 14px;
+  display: none;
+  flex-direction: column;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65);
+  z-index: 999998;
+  overflow: hidden;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Header */
+#ap-hdr {
+  background: #242628;
+  border-bottom: 1px solid #2C2F33;
+  padding: 13px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.ap-ttl {
+  color: #D4D8DC;
+  font-weight: 600;
+  font-size: 0.90rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ap-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #4CAF82;
+  border-radius: 50%;
+}
+
+#ap-cls {
+  background: none;
+  border: none;
+  color: #858C94;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0;
+  line-height: 1;
+}
+
+#ap-cls:hover {
+  color: #D4D8DC;
+}
+
+/* API Key Input (Fallback when unconfigured) */
+#ap-key-row {
+  padding: 10px 14px 4px 14px;
+  flex-shrink: 0;
+  background: #1E2022;
+}
+
+#ap-key {
+  width: 100%;
+  background: #2A2D30;
+  border: 1px solid #2C2F33;
+  border-radius: 7px;
+  color: #D4D8DC;
+  padding: 7px 10px;
+  font-size: 0.77rem;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+}
+
+#ap-key:focus {
+  border-color: #4CAF82;
+}
+
+/* Messages Scroll Container */
+#ap-msgs {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: #2C2F33 transparent;
+}
+
+#ap-msgs::-webkit-scrollbar {
+  width: 4px;
+}
+
+#ap-msgs::-webkit-scrollbar-thumb {
+  background: #2C2F33;
+  border-radius: 4px;
+}
+
+/* Message Bubbles */
+.ap-m {
+  max-width: 86%;
+  padding: 9px 12px;
+  border-radius: 11px;
+  font-size: 0.83rem;
+  line-height: 1.48;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.ap-m.u {
+  background: #4CAF82;
+  color: #111;
+  align-self: flex-end;
+  border-bottom-right-radius: 3px;
+  font-weight: 500;
+}
+
+.ap-m.b {
+  background: #2A2D30;
+  color: #D4D8DC;
+  align-self: flex-start;
+  border-bottom-left-radius: 3px;
+  border: 1px solid #2C2F33;
+}
+
+.ap-m.s {
+  background: #242628;
+  color: #858C94;
+  font-style: italic;
+  align-self: flex-start;
+  border-bottom-left-radius: 3px;
+  border: 1px solid #2C2F33;
+  font-size: 0.78rem;
+}
+
+.ap-via {
+  font-size: 0.71rem;
+  color: #606870;
+  margin-top: 5px;
+  font-style: italic;
+}
+
+/* Footer Status & Budget Counter */
+#ap-footer-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 14px;
+  flex-shrink: 0;
+  font-size: 0.71rem;
+  color: #606870;
+  background: #1E2022;
+}
+
+/* Input Row */
+#ap-inp-row {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid #2C2F33;
+  flex-shrink: 0;
+  background: #1E2022;
+}
+
+#ap-inp {
+  flex: 1;
+  background: #2A2D30;
+  border: 1px solid #2C2F33;
+  border-radius: 7px;
+  color: #D4D8DC;
+  padding: 8px 11px;
+  font-size: 0.83rem;
+  font-family: inherit;
+  outline: none;
+  resize: none;
+  min-height: 36px;
+  max-height: 84px;
+  line-height: 1.4;
+}
+
+#ap-inp:focus {
+  border-color: #4CAF82;
+}
+
+#ap-snd {
+  background: #4CAF82;
+  color: #111;
+  border: none;
+  border-radius: 7px;
+  padding: 0 14px;
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 600;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+#ap-snd:hover {
+  background: #3fa173;
+}
+
+#ap-snd:disabled {
+  background: #2C2F33;
+  color: #4A5058;
+  cursor: not-allowed;
+}

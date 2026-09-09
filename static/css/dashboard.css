@@ -1,0 +1,120 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Background & Navigation */
+.main {
+    background-color: #1A1C1E;
+}
+
+section[data-testid="stSidebar"] {
+    background-color: #1E2022;
+    border-right: 1px solid #2C2F33;
+}
+
+/* KPI Executive Cards */
+.kpi-card {
+    background: #242628;
+    border: 1px solid #2C2F33;
+    border-radius: 10px;
+    padding: 20px;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.kpi-card:hover {
+    border-color: #4CAF82;
+    background: #272A2C;
+}
+
+.kpi-title {
+    color: #858C94;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 6px;
+}
+
+.kpi-value {
+    color: #D4D8DC;
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+}
+
+.kpi-delta-good {
+    color: #4CAF82;
+    font-size: 0.80rem;
+    font-weight: 500;
+}
+
+.kpi-delta-bad {
+    color: #C0392B;
+    font-size: 0.80rem;
+    font-weight: 500;
+}
+
+.kpi-subtext {
+    color: #606870;
+    font-size: 0.74rem;
+    margin-top: 4px;
+}
+
+/* Operational Recommendation Cards */
+.rec-card {
+    background: #242628;
+    border-left: 3px solid #4CAF82;
+    border-radius: 0 8px 8px 0;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+}
+
+.rec-tag {
+    font-size: 0.70rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    color: #4CAF82;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.rec-title {
+    font-size: 1.00rem;
+    font-weight: 600;
+    color: #D4D8DC;
+    margin: 4px 0 6px 0;
+}
+
+.rec-body {
+    font-size: 0.84rem;
+    color: #9AA0A8;
+    line-height: 1.5;
+}
+
+.rec-roi {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #4CAF82;
+    margin-top: 8px;
+}
+
+/* Section Header Dividers */
+.section-header {
+    margin-bottom: 18px;
+}
+
+.section-header h2 {
+    margin: 0;
+    color: #D4D8DC;
+    font-weight: 700;
+    font-size: 1.35rem;
+}
+
+.section-header p {
+    color: #858C94;
+    margin: 4px 0 0 0;
+    font-size: 0.88rem;
+}

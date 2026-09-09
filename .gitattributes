@@ -1,1 +1,21 @@
 * text=auto eol=lf
+
+# GitHub Linguist Language Classification
+# Enables full multi-language display across the repository
+*.sql linguist-detectable=true
+*.sql linguist-language=SQL
+
+*.js linguist-detectable=true
+*.js linguist-language=JavaScript
+
+*.css linguist-detectable=true
+*.css linguist-language=CSS
+
+*.html linguist-detectable=true
+*.html linguist-language=HTML
+
+*.py linguist-detectable=true
+*.py linguist-language=Python
+
+Dockerfile linguist-detectable=true
+Dockerfile linguist-language=Dockerfile
